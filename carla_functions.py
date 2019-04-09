@@ -179,36 +179,41 @@ def referenceErrors(world,vehicle,waypoints,velocities,radius):
     xte =  tuple(np.abs(np.subtract(point, loc)))
     xte = np.sqrt(xte[0]**2 + xte[1]**2)
     print("xte: {}".format(xte))
-    velError = vel - velocities[index]
+    velError = vel - velocities[index+4]
     yaw = vehicle.get_transform().rotation.yaw
     totalDistance = 0
     # print(yaw)
-    for i,r in enumerate(radius[index:]):
-        print("index: {}, totalDistance: {}, Radius: {}".format(index+i,totalDistance,r))
-        if r > 500:
-            totalDistance = totalDistance + np.sqrt((waypoints[index+i][0]-waypoints[index][0])**2 + (waypoints[index+i][1]-waypoints[index+i][1])**2)
+    try:
+        for i,r in enumerate(radius[index:]):
+            print("index: {}, totalDistance: {}, Radius: {}".format(index+i,totalDistance,r))
+            if r > 500:
+                totalDistance = totalDistance + np.sqrt((waypoints[index+i][0]-waypoints[index][0])**2 + (waypoints[index+i][1]-waypoints[index+i][1])**2)
 
-            if totalDistance > 5:
-                if i > 11:
-                    nextWaypoint = waypoints[index+i]
-                    break
-                else:
-                    nextWaypoint = waypoints[index+11]
-                    break
-        
-        else:
-            nextWaypoint = waypoints[index+11]
-            break
-
+                if totalDistance > 5:
+                    if i > 9:
+                        nextWaypoint = waypoints[index+i]
+                        break
+                    else:
+                        nextWaypoint = waypoints[index+9]
+                        break
+            
+            else:
+                nextWaypoint = waypoints[index+9]
+                break
+    except Exception:
+        return 0
     world.debug.draw_point(carla.Location(x=nextWaypoint[0], y=nextWaypoint[1], z=vehicle.get_location().z),size= 0.3, color=carla.Color(r=0, g=0, b=255), life_time=10, persistent_lines=True)
 
     angle = headingAngle(loc,nextWaypoint,yaw)
     angle = 180*angle/np.pi
-    angle = (angle + 720) % 360
-    yaw = (yaw + 720) % 360
+
 
 
     angleError = angle - yaw
+    if angleError>180:
+        angleError  = angleError - 360
+    elif angleError < -180:
+        angleError = angleError + 360
 
     print("Angle: {}, Yaw: {}, Error: {}".format(angle,yaw,angleError))
     return xte, velError, angleError
@@ -223,13 +228,13 @@ def controller(vehicle,xte,velError,angle):
     #     angle = angle - 180
 
 
-    if angle > 80.0:
-        angle = 80.0
+    if angle > 50.0:
+        angle = 50.0
     
-    if angle < -80.0:
-        angle = -80.0
+    if angle < -50:
+        angle = -50
 
-    steering = angle*1/80.0
+    steering = angle*1/50.0
 
     if velError > 2:
         velError = 2

@@ -9,11 +9,11 @@ import subprocess
 import os
 
 
-# SERVER_BINARY = os.environ.get(
-#     "CARLA_SERVER", os.path.expanduser("~/carla/Unreal/CarlaUE4/Binaries/Linux/CarlaUE4"))
-# server_process = subprocess.Popen([SERVER_BINARY],preexec_fn=os.setsid, stdout=open(os.devnull, "w"))
-# print(server_process.pid)
-# time.sleep(40)
+SERVER_BINARY = os.environ.get(
+    "CARLA_SERVER", os.path.expanduser("~/carla/Unreal/CarlaUE4/Binaries/Linux/CarlaUE4"))
+server_process = subprocess.Popen([SERVER_BINARY],preexec_fn=os.setsid, stdout=open(os.devnull, "w"))
+print(server_process.pid)
+time.sleep(30)
 
 for i in range(4):   
     try:
@@ -67,7 +67,10 @@ zippedWaypoints = list(zip(data[0],data[1]))
 newWaypoints,velocities,a = velocitySet(data,radius,speedLimit=7)
 
 while True:
-    xte, velError, angle = referenceErrors(world,vehicle,zippedWaypoints,velocities,radius)
+    error = referenceErrors(world,vehicle,zippedWaypoints,velocities,radius)
+    if error == 0:
+        break
+    xte, velError, angle = error[0],error[1],error[2]
     controller(vehicle,xte,velError,angle)
     world.get_spectator().set_transform(sensor.get_transform())
 
