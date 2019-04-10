@@ -12,6 +12,12 @@ import signal
 
 SERVER_BINARY = os.environ.get(
     "CARLA_SERVER", os.path.expanduser("~/carla/Unreal/CarlaUE4.sh"))
+
+try:
+    os.system("killall CarlaUE4")
+except Exception:
+    pass
+
 server_process = subprocess.Popen([SERVER_BINARY],preexec_fn=os.setsid, stdout=open(os.devnull, "w"))
 print(server_process.pid)
 time.sleep(30)
@@ -71,12 +77,13 @@ while True:
     error = referenceErrors(world,vehicle,zippedWaypoints,velocities,radius)
     if error == 0:
         break
-    xte, velError, angle = error[0],error[1],error[2]
-    controller(vehicle,xte,velError,angle)
+    xte, velError, angleError, index = error[0],error[1],error[2], error[3]
+    controller(vehicle,xte,velError,angleError)
     world.get_spectator().set_transform(sensor.get_transform())
+    # zippedWaypoints = zippedWaypoints[index:]
+    # velocities = velocities[index:]
+    # radius = radius[index:]
 
-    startTime = time.time()
-    t = 0
     time.sleep(1/30)
         
     world.tick()

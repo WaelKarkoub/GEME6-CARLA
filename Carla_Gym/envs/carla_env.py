@@ -12,7 +12,6 @@ import gym
 from gym.spaces import Box, Discrete, Tuple
 import carla
 import sys
-sys.path.insert(0, '~/Desktop/golfcart')
 
 from carla_functions import *
 
@@ -38,6 +37,11 @@ def cleanup():
     print("Killing live carla processes", live_carla_processes)
     for pgid in live_carla_processes:
         os.killpg(pgid, signal.SIGKILL)
+    try:
+        os.system("killall CarlaUE4")
+    except Exception:
+        pass
+
 atexit.register(cleanup)
 
 class CarlaEnv(gym.Env):
@@ -58,7 +62,6 @@ class CarlaEnv(gym.Env):
         self.prev_measurement = None
         self.episode_id = None
         self.measurements_file = None
-        self.scenario = None
         self.start_pos = None
         self.end_pos = None
         self.start_coord = None
@@ -66,12 +69,18 @@ class CarlaEnv(gym.Env):
         self.last_obs = None
         self.server_process = None
         self.world = None
-        self.waypoint = None
+        self.waypoints = None
+        self.map = None
+        self.vehicle = None
 
 
     def init_server(self):
         print("Initializing new Carla server...")
         self.server_port = 2000
+        try:
+            os.system("killall CarlaUE4")
+        except Exception:
+            pass
         self.server_process = subprocess.Popen([SERVER_BINARY],preexec_fn=os.setsid, stdout=open(os.devnull, "w"))
         time.sleep(30)
         for i in range(RETRIES_ON_ERROR):
@@ -86,6 +95,18 @@ class CarlaEnv(gym.Env):
                 time.sleep(2)
         
         live_carla_processes.add(os.getpgid(self.server_process.pid))
+        settings = self.world.get_settings()
+        settings.synchronous_mode = True
+        world.apply_settings(settings)
+        gem = world.get_blueprint_library().find('vehicle.polaris.e6')
+        self.map = self.world.get_map()
+        while True:
+            try:
+                self.waypoints = makePath(world)
+                self.vehicle = self.world.spawn_actor(gem, waypoints[0].transform)
+                break
+            except Exception as e:
+                print("Collision while spawning")
     def clear_server_state(self):
         print("Clearing Carla server state")
 
