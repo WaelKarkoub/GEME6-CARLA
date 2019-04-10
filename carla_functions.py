@@ -183,6 +183,7 @@ def referenceErrors(world,vehicle,waypoints,velocities,radius):
     yaw = vehicle.get_transform().rotation.yaw
     totalDistance = 0
     # print(yaw)
+    nextWaypoint = None
     try:
         for i,r in enumerate(radius[index:]):
             print("index: {}, totalDistance: {}, Radius: {}".format(index+i,totalDistance,r))

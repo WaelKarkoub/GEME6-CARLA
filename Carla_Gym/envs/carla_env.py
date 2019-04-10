@@ -17,7 +17,7 @@ sys.path.insert(0, '~/Desktop/golfcart')
 from carla_functions import *
 
 SERVER_BINARY = os.environ.get(
-    "CARLA_SERVER", os.path.expanduser("~/carla/Unreal/CarlaUE4/Binaries/Linux/CarlaUE4"))
+    "CARLA_SERVER", os.path.expanduser("~/carla/Unreal/CarlaUE4.sh"))
 assert os.path.exists(SERVER_BINARY), "CARLA_SERVER environment variable is not set properly. Please check and retry"
 
 RETRIES_ON_ERROR = 4
@@ -68,11 +68,12 @@ class CarlaEnv(gym.Env):
         self.world = None
         self.waypoint = None
 
+
     def init_server(self):
         print("Initializing new Carla server...")
         self.server_port = 2000
         self.server_process = subprocess.Popen([SERVER_BINARY],preexec_fn=os.setsid, stdout=open(os.devnull, "w"))
-        time.sleep(10)
+        time.sleep(30)
         for i in range(RETRIES_ON_ERROR):
             try:
                 self.client = carla.Client("localhost", self.server_port)
@@ -124,17 +125,10 @@ class CarlaEnv(gym.Env):
         # want for the new episode.
         settings = self.world.get_settings()
         settings.synchronous_mode = True
-        world.apply_settings(settings)
+        self.world.apply_settings(settings)
 
         # Setup start and end positions
-        scene = self.client.load_settings(settings)
-        positions = scene.player_start_spots
-        self.start_pos = positions[self.scenario["start_pos_id"]]
-        self.end_pos = positions[self.scenario["end_pos_id"]]
-        self.start_coord = [
-            self.start_pos.location.x // 100, self.start_pos.location.y // 100]
-        self.end_coord = [
-            self.end_pos.location.x // 100, self.end_pos.location.y // 100]
+
         print(
             "Start pos {} ({}), end {} ({})".format(
                 self.scenario["start_pos_id"], self.start_coord,
@@ -144,8 +138,24 @@ class CarlaEnv(gym.Env):
         # player_start index. This function blocks until the server is ready
         # to start the episode.
         print("Starting new episode...")
-        self.client.start_episode(self.scenario["start_pos_id"])
 
-        image, py_measurements = self._read_observation()
+        Heading angle, xte, velocity, radius (closest), radius (medium), radius (far), distance travelled = self._read_observation()
         self.prev_measurement = py_measurements
         return self.encode_obs(self.preprocess_image(image), py_measurements)
+
+        def encode_obs(self, image, py_measurements):
+            prev_image = self.prev_image
+            self.prev_image = image
+            if prev_image is None:
+                prev_image = image
+
+            if self.config["use_image_only_observations"]:
+                obs = image
+            else:
+                obs = (
+                    image,
+                    COMMAND_ORDINAL[py_measurements["next_command"]],
+                    [py_measurements["forward_speed"],
+                    py_measurements["distance_to_goal"]])
+            self.last_obs = obs
+            return obs

@@ -7,10 +7,11 @@ from carla_functions import *
 from scipy.spatial import distance
 import subprocess
 import os
+import signal
 
 
 SERVER_BINARY = os.environ.get(
-    "CARLA_SERVER", os.path.expanduser("~/carla/Unreal/CarlaUE4/Binaries/Linux/CarlaUE4"))
+    "CARLA_SERVER", os.path.expanduser("~/carla/Unreal/CarlaUE4.sh"))
 server_process = subprocess.Popen([SERVER_BINARY],preexec_fn=os.setsid, stdout=open(os.devnull, "w"))
 print(server_process.pid)
 time.sleep(30)
@@ -80,3 +81,5 @@ while True:
         
     world.tick()
 
+time.sleep(2)
+os.killpg(server_process.pid, signal.SIGKILL)
