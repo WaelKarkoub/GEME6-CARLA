@@ -154,17 +154,7 @@ def referenceErrors(world,vehicle,waypoints,velocities,radius):
         return nodes[closest_index],closest_index
 
     def headingAngle(currentLoc,nextLoc,yaw):
-        # currentVec = [np.cos(yaw),np.sin(yaw)]
-        # nextVec = [(nextLoc[0]-currentLoc[0]),(nextLoc[1]-currentLoc[1])]
-        # def unit_vector(vector):
-        #     """ Returns the unit vector of the vector.  """
-        #     return vector / np.linalg.norm(vector)
-
-        # def angle_between(v1, v2):
-
-        #     v1_u = unit_vector(v1)
-        #     v2_u = unit_vector(v2)
-        #     return np.arccos(np.clip(np.dot(v1_u, v2_u), -1.0, 1.0))    
+   
         return np.arctan2((nextLoc[1]-currentLoc[1]),(nextLoc[0]-currentLoc[0])) #angle_between(nextVec,currentVec)
     map = world.get_map()
 
@@ -179,18 +169,25 @@ def referenceErrors(world,vehicle,waypoints,velocities,radius):
     xte =  tuple(np.abs(np.subtract(point, loc)))
     xte = np.sqrt(xte[0]**2 + xte[1]**2)
     print("xte: {}".format(xte))
-    velError = vel - velocities[index+4]
+
+    try:
+        velError = vel - velocities[index+4]
+    except Exception:
+        velError = vel - velocities[index]
+        print("Velocity index out of range")
+        
+
     yaw = vehicle.get_transform().rotation.yaw
     totalDistance = 0
     # print(yaw)
-    nextWaypoint = None
+    nextWaypoint = waypoints[-1]
     try:
         for i,r in enumerate(radius[index:]):
             print("index: {}, totalDistance: {}, Radius: {}".format(index+i,totalDistance,r))
             if r > 500:
                 totalDistance = totalDistance + np.sqrt((waypoints[index+i][0]-waypoints[index][0])**2 + (waypoints[index+i][1]-waypoints[index+i][1])**2)
 
-                if totalDistance > 5:
+                if totalDistance > 3:
                     if i > 9:
                         nextWaypoint = waypoints[index+i]
                         break
@@ -202,6 +199,9 @@ def referenceErrors(world,vehicle,waypoints,velocities,radius):
                 nextWaypoint = waypoints[index+9]
                 break
     except Exception:
+        return 0
+    
+    if index == len(waypoints)-1:
         return 0
     world.debug.draw_point(carla.Location(x=nextWaypoint[0], y=nextWaypoint[1], z=vehicle.get_location().z),size= 0.3, color=carla.Color(r=0, g=0, b=255), life_time=10, persistent_lines=True)
 

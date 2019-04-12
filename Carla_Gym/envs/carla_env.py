@@ -51,7 +51,7 @@ class CarlaEnv(gym.Env):
         self.action_space = Box(np.array([-1.0,-1.0]), np.array([1.0,1.0]))
 
         #Heading angle, xte, velocity, radius (closest), radius (medium), radius (far), distance travelled
-        self.observation_space = Box(np.array([-360.0,-5.0,0.0,0.0,0.0,0.0,-np.inf]), np.array([360,5.0,12.0,np.inf,np.inf,np.inf,np.inf]))
+        self.observation_space = Box(np.array([-360.0,-5.0,0.0,0.0]), np.array([360,5.0,12.0,np.inf]))
         self._spec = lambda: None
         self._spec.id = "Carla-v0"
         self._seed = 1
@@ -72,7 +72,12 @@ class CarlaEnv(gym.Env):
         self.waypoints = None
         self.map = None
         self.vehicle = None
-
+        self.zippedWaypoints = None
+        self.velocities = None
+        self.radius = None
+        self.cam = None
+        self.camPos = None
+        self.sensor = None
 
     def init_server(self):
         print("Initializing new Carla server...")
@@ -95,18 +100,35 @@ class CarlaEnv(gym.Env):
                 time.sleep(2)
         
         live_carla_processes.add(os.getpgid(self.server_process.pid))
+
         settings = self.world.get_settings()
         settings.synchronous_mode = True
-        world.apply_settings(settings)
-        gem = world.get_blueprint_library().find('vehicle.polaris.e6')
+        self.world.apply_settings(settings)
+        gem = self.world.get_blueprint_library().find('vehicle.polaris.e6')
         self.map = self.world.get_map()
         while True:
             try:
                 self.waypoints = makePath(world)
-                self.vehicle = self.world.spawn_actor(gem, waypoints[0].transform)
+                self.vehicle = self.world.spawn_actor(gem, self.waypoints[0].transform)
                 break
             except Exception as e:
                 print("Collision while spawning")
+        
+        positions = waypoints2tuple(self.waypoints)
+        self.cam = world.get_blueprint_library().find('sensor.camera.rgb')
+        self.camPos = carla.Transform(carla.Location(x=-8.5, z=2.8))
+        self.cam.set_attribute('image_size_x', '1920')
+        self.cam.set_attribute('image_size_y', '1080')
+        self.cam.set_attribute('fov', '110')
+        self.cam.set_attribute('sensor_tick', '0.0')
+        self.sensor = world.spawn_actor(self.cam, self.camPos, attach_to=self.vehicle)
+
+        tck,x,y = splineFit(positions)
+
+        data,self.radius = splineEval(x,y,tck)
+        self.zippedWaypoints = list(zip(data[0],data[1]))
+        newWaypoints,self.velocities,a = velocitySet(data,radius,speedLimit=7)
+
     def clear_server_state(self):
         print("Clearing Carla server state")
 
@@ -116,7 +138,11 @@ class CarlaEnv(gym.Env):
             live_carla_processes.remove(pgid)
             self.server_port = None
             self.server_process = None
-    
+        try:
+            os.system("killall CarlaUE4")
+        except Exception:
+            pass
+
     def __del__(self):
         self.clear_server_state()
     
@@ -134,34 +160,41 @@ class CarlaEnv(gym.Env):
         raise error
 
     def reset_env(self):
+        self.vehicle.destroy()
+        self.sensor.destroy()
+        self.vehicle = None
+        self.sensor = None
         self.num_steps = 0
         self.total_reward = 0
         self.prev_measurement = None
-        self.prev_image = None
+        self.radius = None
+        self.zippedWaypoints = None
+        self.velocities = None
         self.episode_id = datetime.today().strftime("%Y-%m-%d_%H-%M-%S_%f")
-        self.measurements_file = None
+        gem = self.world.get_blueprint_library().find('vehicle.polaris.e6')
 
-        # Create a CarlaSettings object. This object is a wrapper around
-        # the CarlaSettings.ini file. Here we set the configuration we
-        # want for the new episode.
-        settings = self.world.get_settings()
-        settings.synchronous_mode = True
-        self.world.apply_settings(settings)
+        while True:
+            try:
+                self.waypoints = makePath(world)
+                self.vehicle = self.world.spawn_actor(gem, self.waypoints[0].transform)
+                break
+            except Exception as e:
+                print("Collision while spawning")
 
-        # Setup start and end positions
+        positions = waypoints2tuple(self.waypoints)
+        self.sensor = world.spawn_actor(self.cam, self.camPos, attach_to=self.vehicle)  
 
-        print(
-            "Start pos {} ({}), end {} ({})".format(
-                self.scenario["start_pos_id"], self.start_coord,
-                self.scenario["end_pos_id"], self.end_coord))
+        tck,x,y = splineFit(positions)
 
-        # Notify the server that we want to start the episode at the
-        # player_start index. This function blocks until the server is ready
-        # to start the episode.
+        data,self.radius = splineEval(x,y,tck)
+        self.zippedWaypoints = list(zip(data[0],data[1]))
+        newWaypoints,self.velocities,a = velocitySet(data,radius,speedLimit=7)
+
+
         print("Starting new episode...")
 
-        Heading angle, xte, velocity, radius (closest), radius (medium), radius (far), distance travelled = self._read_observation()
-        self.prev_measurement = py_measurements
+        # Heading angle, xte, velocity, radius (closest), radius (medium), radius (far), distance travelled = self._read_observation()
+        # self.prev_measurement = py_measurements
         return self.encode_obs(self.preprocess_image(image), py_measurements)
 
         def encode_obs(self, image, py_measurements):
@@ -180,3 +213,21 @@ class CarlaEnv(gym.Env):
                     py_measurements["distance_to_goal"]])
             self.last_obs = obs
             return obs
+    def _read_observations(self):
+        error = referenceErrors(self.world,self.vehicle,self.zippedWaypoints,self.velocities,self.radius)
+        if (error == 0):
+            reachedGoal = 1
+        else:
+            reachedGoal = 0
+        if isinstance(error,list):
+            xte, velError, angleError, index = error[0],error[1],error[2], error[3]
+
+        py_measurements = {
+            "episode_id": self.episode_id,
+            "step": self.num_steps,
+            "reached_goal": reachedGoal,
+            "xte": xte,
+            "velocity_error": velError,
+            "angle_error": angleError,
+            "distance_to_goal_euclidean": distance_to_goal_euclidean,
+        }

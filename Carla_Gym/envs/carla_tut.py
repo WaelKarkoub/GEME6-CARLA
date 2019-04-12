@@ -77,7 +77,7 @@ while True:
     error = referenceErrors(world,vehicle,zippedWaypoints,velocities,radius)
     if error == 0:
         break
-    xte, velError, angleError, index = error[0],error[1],error[2], error[3]
+    xte, velError, angleError, r = error[0],error[1],error[2], error[3]
     controller(vehicle,xte,velError,angleError)
     world.get_spectator().set_transform(sensor.get_transform())
     # zippedWaypoints = zippedWaypoints[index:]
@@ -88,5 +88,7 @@ while True:
         
     world.tick()
 
+vehicle.destroy()
+world.tick()
 time.sleep(2)
 os.killpg(server_process.pid, signal.SIGKILL)
