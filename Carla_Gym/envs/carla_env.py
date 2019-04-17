@@ -271,7 +271,7 @@ class CarlaEnv(gym.Env):
         self.total_reward += reward
         py_measurements["reward"] = reward
         py_measurements["total_reward"] = self.total_reward
-        done = (self.num_steps > 10**12 or
+        done = (self.num_steps > 10**4 or
                 py_measurements["reached_goal"] or
                 (py_measurements["xte"]>3))
         py_measurements["done"] = done
