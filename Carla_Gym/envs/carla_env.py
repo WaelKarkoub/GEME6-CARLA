@@ -88,7 +88,7 @@ class CarlaEnv(gym.Env):
         except Exception:
             pass
         self.server_process = subprocess.Popen([SERVER_BINARY],preexec_fn=os.setsid, stdout=open(os.devnull, "w"))
-        time.sleep(30)
+        time.sleep(20)
         for i in range(RETRIES_ON_ERROR):
             try:
                 self.client = carla.Client("localhost", self.server_port)
@@ -123,12 +123,13 @@ class CarlaEnv(gym.Env):
         self.cam.set_attribute('fov', '110')
         self.cam.set_attribute('sensor_tick', '0.0')
         self.sensor = self.world.spawn_actor(self.cam, self.camPos, attach_to=self.vehicle)
-        self.world.tick()
         tck,x,y = splineFit(positions)
 
         data,self.radius = splineEval(x,y,tck)
         self.zippedWaypoints = list(zip(data[0],data[1]))
         newWaypoints,self.velocities,a = velocitySet(data,self.radius,speedLimit=7)
+        time.sleep(1/30)
+        self.world.tick()
 
     def clear_server_state(self):
         print("Clearing Carla server state")
@@ -182,13 +183,10 @@ class CarlaEnv(gym.Env):
         data,self.radius = splineEval(x,y,tck)
         self.zippedWaypoints = list(zip(data[0],data[1]))
         newWaypoints,self.velocities,a = velocitySet(data,self.radius,speedLimit=7)
-        self.world.get_spectator().set_transform(self.sensor.get_transform())
-        self.world.tick()
-
         print("Starting new episode...")
 
         # Heading angle, xte, velocity, radius (closest), radius (medium), radius (far), distance travelled = self._read_observation()
-        # self.prev_measurement = py_measurements
+        self.prev_measurement = py_measurements
         return self._read_observations()[0]
 
     def _read_observations(self):
@@ -197,7 +195,7 @@ class CarlaEnv(gym.Env):
             reachedGoal = 1
         else:
             reachedGoal = 0
-        if isinstance(error,list):
+        if isinstance(error,tuple):
             xte, velError, angleError,nextWaypoint, index = error[0],error[1],error[2], error[3], error[4]
 
         py_measurements = {
@@ -246,9 +244,7 @@ class CarlaEnv(gym.Env):
                     manual_gear_shift = False,
                     gear = 1)
         self.vehicle.apply_control(control)
-        self.world.get_spectator().set_transform(self.sensor.get_transform())
-        time.sleep(1/30)
-        self.world.tick()
+    
         # Process observations
         obs, py_measurements = self._read_observations()
 
@@ -279,6 +275,12 @@ class CarlaEnv(gym.Env):
         :return: The scalar reward
         """
         reward = 0.0
+        print(type(prev_measurement["xte"]))
+        if self.prev_measurement["xte"] is None:
+            self.prev_measurement["xte"] = 0
+        
+        if self.prev_measurement["velocity_error"] is None:
+            self.prev_measurement["velocity_error"] = 0
 
         dist = np.abs(current_measurement["xte"]) - np.abs(self.prev_measurement["xte"])
         vel = np.abs(current_measurement["velocity_error"]) - np.abs(self.prev_measurement["velocity_error"])
@@ -296,3 +298,7 @@ class CarlaEnv(gym.Env):
             reward -= 1000
 
         return reward
+    
+    def render(self):
+        self.world.get_spectator().set_transform(self.sensor.get_transform())
+        self.world.tick()
