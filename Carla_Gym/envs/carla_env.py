@@ -78,6 +78,7 @@ class CarlaEnv(gym.Env):
         self.cam = None
         self.camPos = None
         self.sensor = None
+        self.init_server()
 
     def init_server(self):
         print("Initializing new Carla server...")
@@ -108,26 +109,26 @@ class CarlaEnv(gym.Env):
         self.map = self.world.get_map()
         while True:
             try:
-                self.waypoints = makePath(world)
+                self.waypoints = makePath(self.world)
                 self.vehicle = self.world.spawn_actor(gem, self.waypoints[0].transform)
                 break
             except Exception as e:
                 print("Collision while spawning")
         
         positions = waypoints2tuple(self.waypoints)
-        self.cam = world.get_blueprint_library().find('sensor.camera.rgb')
+        self.cam = self.world.get_blueprint_library().find('sensor.camera.rgb')
         self.camPos = carla.Transform(carla.Location(x=-8.5, z=2.8))
         self.cam.set_attribute('image_size_x', '1920')
         self.cam.set_attribute('image_size_y', '1080')
         self.cam.set_attribute('fov', '110')
         self.cam.set_attribute('sensor_tick', '0.0')
-        self.sensor = world.spawn_actor(self.cam, self.camPos, attach_to=self.vehicle)
-
+        self.sensor = self.world.spawn_actor(self.cam, self.camPos, attach_to=self.vehicle)
+        self.world.tick()
         tck,x,y = splineFit(positions)
 
         data,self.radius = splineEval(x,y,tck)
         self.zippedWaypoints = list(zip(data[0],data[1]))
-        newWaypoints,self.velocities,a = velocitySet(data,radius,speedLimit=7)
+        newWaypoints,self.velocities,a = velocitySet(data,self.radius,speedLimit=7)
 
     def clear_server_state(self):
         print("Clearing Carla server state")
@@ -147,21 +148,13 @@ class CarlaEnv(gym.Env):
         self.clear_server_state()
     
     def reset(self):
-        error = None
-        for _ in range(RETRIES_ON_ERROR):
-            try:
-                if not self.server_process:
-                    self.init_server()
-                return self.reset_env()
-            except Exception as e:
-                print("Error during reset: {}".format(traceback.format_exc()))
-                self.clear_server_state()
-                error = e
-        raise error
+        return self.reset_env()
 
     def reset_env(self):
-        self.vehicle.destroy()
-        self.sensor.destroy()
+        if self.vehicle is not None:
+            self.vehicle.destroy()
+            self.sensor.destroy()
+        
         self.vehicle = None
         self.sensor = None
         self.num_steps = 0
@@ -188,9 +181,9 @@ class CarlaEnv(gym.Env):
 
         data,self.radius = splineEval(x,y,tck)
         self.zippedWaypoints = list(zip(data[0],data[1]))
-        newWaypoints,self.velocities,a = velocitySet(data,radius,speedLimit=7)
+        newWaypoints,self.velocities,a = velocitySet(data,self.radius,speedLimit=7)
         self.world.get_spectator().set_transform(self.sensor.get_transform())
-
+        self.world.tick()
 
         print("Starting new episode...")
 
