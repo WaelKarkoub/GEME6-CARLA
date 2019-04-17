@@ -211,9 +211,18 @@ class CarlaEnv(gym.Env):
             }
             obs = (xte,velError,angleError,self.radius[index]/500)
         else:
-            self.last_obs = obs
-
-            
+            obs = self.last_obs
+            py_measurements = {
+                "episode_id": self.episode_id,
+                "step": self.num_steps,
+                "reached_goal": reachedGoal,
+                "xte": obs[0],
+                "velocity_error": obs[1],
+                "angle_error": obs[2],
+                "next_x": self.map.get_waypoint(self.vehicle.get_location()).transform.location.x,
+                "next_y":self.map.get_waypoint(self.vehicle.get_location()).transform.location.x,
+                "radius": obs[3],
+            }
 
         self.last_obs = obs
         return [obs,py_measurements]
