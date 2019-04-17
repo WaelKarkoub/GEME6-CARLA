@@ -1,1 +1,1 @@
-from carla_gym.envs.carla_env import CarlaEnv
+import Carla_Gym.envs.carla_env import CarlaEnv
