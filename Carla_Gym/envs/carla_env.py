@@ -47,7 +47,7 @@ atexit.register(cleanup)
 class CarlaEnv(gym.Env):
     def __init__(self):
 
-        # Steering, Throttle
+        # Throttle, Steering
         self.action_space = Box(np.array([-1.0,-1.0]), np.array([1.0,1.0]))
 
         #Heading angle, xte, velocity, radius (closest), radius (medium), radius (far), distance travelled
@@ -175,44 +175,29 @@ class CarlaEnv(gym.Env):
 
         while True:
             try:
-                self.waypoints = makePath(world)
+                self.waypoints = makePath(self.world)
                 self.vehicle = self.world.spawn_actor(gem, self.waypoints[0].transform)
                 break
             except Exception as e:
                 print("Collision while spawning")
 
         positions = waypoints2tuple(self.waypoints)
-        self.sensor = world.spawn_actor(self.cam, self.camPos, attach_to=self.vehicle)  
+        self.sensor = self.world.spawn_actor(self.cam, self.camPos, attach_to=self.vehicle)  
 
         tck,x,y = splineFit(positions)
 
         data,self.radius = splineEval(x,y,tck)
         self.zippedWaypoints = list(zip(data[0],data[1]))
         newWaypoints,self.velocities,a = velocitySet(data,radius,speedLimit=7)
+        self.world.get_spectator().set_transform(self.sensor.get_transform())
 
 
         print("Starting new episode...")
 
         # Heading angle, xte, velocity, radius (closest), radius (medium), radius (far), distance travelled = self._read_observation()
         # self.prev_measurement = py_measurements
-        return self.encode_obs(self.preprocess_image(image), py_measurements)
+        return self._read_observations()[0]
 
-        def encode_obs(self, image, py_measurements):
-            prev_image = self.prev_image
-            self.prev_image = image
-            if prev_image is None:
-                prev_image = image
-
-            if self.config["use_image_only_observations"]:
-                obs = image
-            else:
-                obs = (
-                    image,
-                    COMMAND_ORDINAL[py_measurements["next_command"]],
-                    [py_measurements["forward_speed"],
-                    py_measurements["distance_to_goal"]])
-            self.last_obs = obs
-            return obs
     def _read_observations(self):
         error = referenceErrors(self.world,self.vehicle,self.zippedWaypoints,self.velocities,self.radius)
         if (error == 0):
@@ -220,7 +205,7 @@ class CarlaEnv(gym.Env):
         else:
             reachedGoal = 0
         if isinstance(error,list):
-            xte, velError, angleError, index = error[0],error[1],error[2], error[3]
+            xte, velError, angleError,nextWaypoint, index = error[0],error[1],error[2], error[3], error[4]
 
         py_measurements = {
             "episode_id": self.episode_id,
@@ -229,5 +214,92 @@ class CarlaEnv(gym.Env):
             "xte": xte,
             "velocity_error": velError,
             "angle_error": angleError,
-            "distance_to_goal_euclidean": distance_to_goal_euclidean,
+            "next_x": nextWaypoint[0],
+            "next_y": nextWaypoint[1],
+            "radius": self.radius[index]/500,
         }
+
+
+        obs = (xte,velError,angleError,self.radius[index]/500)
+        self.last_obs = obs
+        return [obs,py_measurements]
+
+    def step(self, action):
+        try:
+            obs = self.step_env(action)
+            return obs
+        except Exception:
+            print(
+                "Error during step, terminating episode early",
+                traceback.format_exc())
+            self.clear_server_state()
+            return (self.last_obs, 0.0, True, {})
+    
+    def step_env(self, action):
+
+        throttle = float(np.clip(action[0], 0, 1))
+        brake = float(np.abs(np.clip(action[0], -1, 0)))
+        steer = float(np.clip(action[1], -1, 1))
+        reverse = False
+        hand_brake = False
+
+        print("steer", steer, "throttle", throttle, "brake", brake)
+        control = carla.VehicleControl(
+                    throttle = throttle,
+                    steer = steer,
+                    brake = brake,
+                    hand_brake = False,
+                    reverse = False,
+                    manual_gear_shift = False,
+                    gear = 1)
+        self.vehicle.apply_control(control)
+        self.world.get_spectator().set_transform(self.sensor.get_transform())
+        time.sleep(1/30)
+        self.world.tick()
+        # Process observations
+        obs, py_measurements = self._read_observations()
+
+        py_measurements["control"] = {
+            "steer": steer,
+            "throttle": throttle,
+            "brake": brake,
+            "reverse": reverse,
+            "hand_brake": hand_brake,
+        }
+        reward = self.calculate_reward(py_measurements)
+        self.total_reward += reward
+        py_measurements["reward"] = reward
+        py_measurements["total_reward"] = self.total_reward
+        done = (self.num_steps > 10**12 or
+                py_measurements["reached_goal"] or
+                (py_measurements["xte"]>1))
+        py_measurements["done"] = done
+        self.prev_measurement = py_measurements
+
+        self.num_steps += 1
+        return (obs, reward, done,py_measurements)
+
+    def calculate_reward(self, current_measurement):
+        """
+        Calculate the reward based on the effect of the action taken using the previous and the current measurements
+        :param current_measurement: The measurement obtained from the Carla engine after executing the current action
+        :return: The scalar reward
+        """
+        reward = 0.0
+
+        dist = np.abs(current_measurement["xte"]) - np.abs(self.prev_measurement["xte"])
+        vel = np.abs(current_measurement["velocity_error"]) - np.abs(self.prev_measurement["velocity_error"])
+
+        reward += 10*dist
+        reward += 10*vel
+        reward -= np.abs(current_measurement["xte"])
+        reward -= np.abs(current_measurement["velocity_error"])
+
+
+        if  np.abs(current_measurement["xte"])> 0.5:
+            reward -= 1000
+
+        if np.abs(current_measurement["velocity_error"])> 3:
+            reward -= 1000
+
+        return reward

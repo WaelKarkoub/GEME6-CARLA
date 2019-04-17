@@ -217,7 +217,7 @@ def referenceErrors(world,vehicle,waypoints,velocities,radius):
         angleError = angleError + 360
 
     print("Angle: {}, Yaw: {}, Error: {}".format(angle,yaw,angleError))
-    return xte, velError, angleError, index
+    return xte, velError, angleError, nextWaypoint, index
 
 def controller(vehicle,xte,velError,angle):
      
