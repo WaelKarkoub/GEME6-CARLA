@@ -186,7 +186,7 @@ class CarlaEnv(gym.Env):
         print("Starting new episode...")
 
         # Heading angle, xte, velocity, radius (closest), radius (medium), radius (far), distance travelled = self._read_observation()
-        self.prev_measurement = py_measurements
+        self.prev_measurement = self._read_observations()[1]
         return self._read_observations()[0]
 
     def _read_observations(self):
@@ -197,21 +197,24 @@ class CarlaEnv(gym.Env):
             reachedGoal = 0
         if isinstance(error,tuple):
             xte, velError, angleError,nextWaypoint, index = error[0],error[1],error[2], error[3], error[4]
+        if reachedGoal == 0:
+            py_measurements = {
+                "episode_id": self.episode_id,
+                "step": self.num_steps,
+                "reached_goal": reachedGoal,
+                "xte": xte,
+                "velocity_error": velError,
+                "angle_error": angleError,
+                "next_x": nextWaypoint[0],
+                "next_y": nextWaypoint[1],
+                "radius": self.radius[index]/500,
+            }
+            obs = (xte,velError,angleError,self.radius[index]/500)
+        else:
+            self.last_obs = obs
 
-        py_measurements = {
-            "episode_id": self.episode_id,
-            "step": self.num_steps,
-            "reached_goal": reachedGoal,
-            "xte": xte,
-            "velocity_error": velError,
-            "angle_error": angleError,
-            "next_x": nextWaypoint[0],
-            "next_y": nextWaypoint[1],
-            "radius": self.radius[index]/500,
-        }
+            
 
-
-        obs = (xte,velError,angleError,self.radius[index]/500)
         self.last_obs = obs
         return [obs,py_measurements]
 
@@ -261,7 +264,7 @@ class CarlaEnv(gym.Env):
         py_measurements["total_reward"] = self.total_reward
         done = (self.num_steps > 10**12 or
                 py_measurements["reached_goal"] or
-                (py_measurements["xte"]>1))
+                (py_measurements["xte"]>3))
         py_measurements["done"] = done
         self.prev_measurement = py_measurements
 
@@ -275,12 +278,6 @@ class CarlaEnv(gym.Env):
         :return: The scalar reward
         """
         reward = 0.0
-        print(type(prev_measurement["xte"]))
-        if self.prev_measurement["xte"] is None:
-            self.prev_measurement["xte"] = 0
-        
-        if self.prev_measurement["velocity_error"] is None:
-            self.prev_measurement["velocity_error"] = 0
 
         dist = np.abs(current_measurement["xte"]) - np.abs(self.prev_measurement["xte"])
         vel = np.abs(current_measurement["velocity_error"]) - np.abs(self.prev_measurement["velocity_error"])
@@ -301,4 +298,5 @@ class CarlaEnv(gym.Env):
     
     def render(self):
         self.world.get_spectator().set_transform(self.sensor.get_transform())
+        time.sleep(1/31)
         self.world.tick()
