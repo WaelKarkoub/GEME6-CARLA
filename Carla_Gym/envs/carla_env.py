@@ -284,20 +284,34 @@ class CarlaEnv(gym.Env):
         """
         reward = 0.0
 
-        dist = np.abs(current_measurement["xte"]) - np.abs(self.prev_measurement["xte"])
-        vel = np.abs(current_measurement["velocity_error"]) - np.abs(self.prev_measurement["velocity_error"])
 
-        reward += 10*dist
-        reward += 10*vel
+        if current_measurement["xte"] > self.prev_measurement["xte"]:
+            reward += 10
+        
+        elif current_measurement["xte"] > self.prev_measurement["xte"]:
+            reward -= 10
+        
+        else:
+            pass
+
+        if current_measurement["velocity_error"] > self.prev_measurement["velocity_error"]:
+            reward += 15
+        
+        elif current_measurement["velocity_error"] > self.prev_measurement["velocity_error"]:
+            reward -= 15
+        
+        else:
+            pass
+        
         reward -= np.abs(current_measurement["xte"])
         reward -= np.abs(current_measurement["velocity_error"])
 
 
-        if  np.abs(current_measurement["xte"])> 0.75:
-            reward -= 1000
+        if  np.abs(current_measurement["xte"])> 0.3:
+            reward -= 30
 
         if np.abs(current_measurement["velocity_error"])> 3:
-            reward -= 1000
+            reward -= 30
 
         return reward
     
