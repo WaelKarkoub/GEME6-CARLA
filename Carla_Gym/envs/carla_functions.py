@@ -168,7 +168,6 @@ def referenceErrors(world,vehicle,waypoints,velocities,radius):
     vel = np.sqrt(vel.x**2 + vel.y**2 + vel.z**2 )
     xte =  tuple(np.abs(np.subtract(point, loc)))
     xte = np.sqrt(xte[0]**2 + xte[1]**2)
-#    print("xte: {}".format(xte))
 
     try:
         velError = vel - velocities[index+4]
@@ -215,8 +214,6 @@ def referenceErrors(world,vehicle,waypoints,velocities,radius):
         angleError  = angleError - 360
     elif angleError < -180:
         angleError = angleError + 360
-
-    print("Angle: {}, Yaw: {}, Error: {}".format(angle,yaw,angleError))
     return xte, velError, angleError, nextWaypoint, index
 
 def controller(vehicle,xte,velError,angle):
@@ -252,7 +249,7 @@ def controller(vehicle,xte,velError,angle):
         brake = 0
     else:
         gas, brake = 0, 0
-#    print("Gas: {}, Break: {}, Steering: {}".format(gas,brake,steering))
+
     control = carla.VehicleControl(
         throttle = gas,
         steer = steering,

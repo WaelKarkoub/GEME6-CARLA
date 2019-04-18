@@ -62,9 +62,7 @@ class CarlaEnv(gym.Env):
         self.prev_measurement = None
         self.episode_id = None
         self.measurements_file = None
-        self.start_pos = None
-        self.end_pos = None
-        self.start_coord = None
+
         self.end_coord = None
         self.last_obs = None
         self.server_process = None
@@ -79,7 +77,7 @@ class CarlaEnv(gym.Env):
         self.camPos = None
         self.sensor = None
         self.init_server()
-
+        self.reset()
     def init_server(self):
         print("Initializing new Carla server...")
         self.server_port = 2000
@@ -88,7 +86,7 @@ class CarlaEnv(gym.Env):
         except Exception:
             pass
         self.server_process = subprocess.Popen([SERVER_BINARY],preexec_fn=os.setsid, stdout=open(os.devnull, "w"))
-        time.sleep(20)
+        time.sleep(10)
         for i in range(RETRIES_ON_ERROR):
             try:
                 self.client = carla.Client("localhost", self.server_port)
@@ -128,8 +126,6 @@ class CarlaEnv(gym.Env):
         data,self.radius = splineEval(x,y,tck)
         self.zippedWaypoints = list(zip(data[0],data[1]))
         newWaypoints,self.velocities,a = velocitySet(data,self.radius,speedLimit=7)
-        time.sleep(1/30)
-        self.world.tick()
 
     def clear_server_state(self):
         print("Clearing Carla server state")
@@ -209,7 +205,7 @@ class CarlaEnv(gym.Env):
                 "next_y": nextWaypoint[1],
                 "radius": self.radius[index]/500,
             }
-            obs = (xte,velError,angleError,self.radius[index]/500)
+            obs = np.array([xte,velError,angleError,self.radius[index]/500])
         else:
             obs = self.last_obs
             py_measurements = {
@@ -230,7 +226,7 @@ class CarlaEnv(gym.Env):
     def step(self, action):
         try:
             obs = self.step_env(action)
-            return obs
+            return obs[0],obs[1], obs[2], {}
         except Exception:
             print(
                 "Error during step, terminating episode early",
@@ -240,9 +236,9 @@ class CarlaEnv(gym.Env):
     
     def step_env(self, action):
 
-        throttle = float(np.clip(action[0], 0, 1))
-        brake = float(np.abs(np.clip(action[0], -1, 0)))
-        steer = float(np.clip(action[1], -1, 1))
+        throttle = float(np.clip(action[0][0], 0, 1))
+        brake = float(np.abs(np.clip(action[0][0], -1, 0)))
+        steer = float(np.clip(action[0][1], -1, 1))
         reverse = False
         hand_brake = False
 
@@ -297,7 +293,7 @@ class CarlaEnv(gym.Env):
         reward -= np.abs(current_measurement["velocity_error"])
 
 
-        if  np.abs(current_measurement["xte"])> 0.5:
+        if  np.abs(current_measurement["xte"])> 0.75:
             reward -= 1000
 
         if np.abs(current_measurement["velocity_error"])> 3:
