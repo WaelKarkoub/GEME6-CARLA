@@ -63,7 +63,7 @@ class CarlaEnv(gym.Env):
         self.episode_id = None
         self.measurements_file = None
 
-        self.end_coord = None
+        self.prevLocation = None
         self.last_obs = None
         self.server_process = None
         self.world = None
@@ -156,6 +156,8 @@ class CarlaEnv(gym.Env):
         self.sensor = None
         self.num_steps = 0
         self.total_reward = 0
+        self.prevLocation = None
+        self.currenLocation = None
         self.prev_measurement = None
         self.radius = None
         self.zippedWaypoints = None
@@ -285,29 +287,29 @@ class CarlaEnv(gym.Env):
         reward = 0.0
 
 
-        if np.abs(current_measurement["xte"]) > np.abs(self.prev_measurement["xte"]):
-            reward += 10
+        # if np.abs(current_measurement["xte"]) < np.abs(self.prev_measurement["xte"]):
+        #     reward += 10
         
-        elif np.abs(current_measurement["xte"]) > np.abs(self.prev_measurement["xte"]):
-            reward -= 10
+        # elif np.abs(current_measurement["xte"]) > np.abs(self.prev_measurement["xte"]):
+        #     reward -= 10
         
-        else:
-            pass
+        # else:
+        #     pass
 
-        if np.abs(current_measurement["velocity_error"]) > np.abs(self.prev_measurement["velocity_error"]):
-            reward += 15
+        # if np.abs(current_measurement["velocity_error"]) < np.abs(self.prev_measurement["velocity_error"]):
+        #     reward += 20
         
-        elif np.abs(current_measurement["velocity_error"]) > np.abs(self.prev_measurement["velocity_error"]):
-            reward -= 15
+        # elif np.abs(current_measurement["velocity_error"]) > np.abs(self.prev_measurement["velocity_error"]):
+        #     reward -= 20
         
-        else:
-            pass
+        # else:
+        #     pass
         
-        reward -= 10*np.abs(current_measurement["xte"])
-        reward -= 10*np.abs(current_measurement["velocity_error"])
+        reward -= np.abs(current_measurement["xte"])
+        reward -= 5*np.abs(current_measurement["velocity_error"])
 
 
-        if  np.abs(current_measurement["xte"])> 0.3:
+        if  np.abs(current_measurement["xte"])> 0.5:
             reward -= 50
 
         if np.abs(current_measurement["velocity_error"])> 3:
