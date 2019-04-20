@@ -18,7 +18,7 @@ from keras.layers.merge import Add, Multiply, Concatenate
 
 
 from collections import deque
-
+#https://github.com/spiglerg/DQN_DDQN_Dueling_and_DDPG_Tensorflow/blob/master/modules/ddpg.py
 #https://towardsdatascience.com/reinforcement-learning-w-keras-openai-actor-critic-models-f084612cfd69
 class ActorCritic:
     def __init__(self, env, sess):
@@ -75,7 +75,7 @@ class ActorCritic:
         h2 = Dense(256, activation='relu')(h1)
         h3 = Dense(128, activation='relu')(h2)
         h4 = Dense(64, activation='relu')(h3)
-        output = Dense(self.env.action_space.shape[0], activation='linear')(h4)
+        output = Dense(self.env.action_space.shape[0])(h4)
         
         model = Model(input=state_input, output=output)
         adam  = Adam(lr=0.003)
@@ -92,7 +92,7 @@ class ActorCritic:
         
         merged    = Add()([state_h2, action_h1])
         merged_h1 = Dense(64, activation='relu')(merged)
-        output = Dense(1,activation='linear')(merged_h1)
+        output = Dense(1)(merged_h1)
         model  = Model(input=[state_input,action_input], output=output)
         
         adam  = Adam(lr=0.003)
@@ -171,9 +171,9 @@ class ActorCritic:
 
     def act(self, cur_state):
         self.epsilon *= self.epsilon_decay
-        if np.random.random() < self.epsilon:
-            print("Random")
-            return self.env.action_space.sample()
+        # if np.random.random() < self.epsilon:
+        #     print("Random")
+        #     return self.env.action_space.sample()
         return self.actor_model.predict(cur_state)
 
     def save_model(self):
@@ -245,7 +245,7 @@ def main():
     actor_critic = ActorCritic(env, sess)
     try:
         actor_critic.load_model()
-        print("model loaded")
+        print("\033[93m model loaded")
         
     except Exception as e:
         print(e)
@@ -270,8 +270,8 @@ def main():
             # else:
             #     action = actor_critic.act(cur_state)
             
-            # action = actor_critic.act(cur_state)
-            action = controller(cur_state[0][0],cur_state[0][1],cur_state[0][2])
+            action = actor_critic.act(cur_state)
+            # action = controller(cur_state[0][0],cur_state[0][1],cur_state[0][2])
             action = action.reshape((1, env.action_space.shape[0]))
 
             new_state, reward, done, _ = env.step(action)
@@ -279,14 +279,14 @@ def main():
             print("reward: {}, iter: {}, epoch: {}".format(reward, counter,epochs))
             new_state = new_state.reshape((1, env.observation_space.shape[0]))
             actor_critic.remember(cur_state, action, [reward], new_state, done)
-            if (counter % 1 == 0):
-                while True:
-                    try:
-                        print("training")
-                        actor_critic.train()
-                        break
-                    except Exception as e:
-                        print(e)
+            # if (counter % 5 == 0):
+            #     while True:
+            #         try:
+            #             print("training")
+            #             actor_critic.train()
+            #             break
+            #         except Exception as e:
+            #             print(e)
             cur_state = new_state
             if done or (counter>trial_len):
                 actor_critic.save_model()

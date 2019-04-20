@@ -310,11 +310,14 @@ class CarlaEnv(gym.Env):
 
 
         if  np.abs(current_measurement["xte"])> 0.5:
-            reward -= 50
+            reward -= 10
+        if  np.abs(current_measurement["xte"])<= 0.5:
+            reward += 10
 
         if np.abs(current_measurement["velocity_error"])> 3:
             reward -= 50
-
+        if np.abs(current_measurement["velocity_error"])<= 3:
+            reward += 20
         return reward
     
     def render(self):
