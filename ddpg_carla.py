@@ -388,10 +388,10 @@ def train(sess, env, actor, critic, actor_noise,summary_dir,buffer_size, minibat
             env.render()
 
             # Added exploration noise
-            #a = actor.predict(np.reshape(s, (1, 3))) + (1. / (1. + i))
-            a = actor.predict(np.reshape(s, (1, actor.s_dim))) + actor_noise()
-            # a = controller(s[0],s[1],s[3])
-            s2, r, terminal, info = env.step(a[0])
+            # a = actor.predict(np.reshape(s, (1, 3))) + (1. / (1. + i))
+            # a = actor.predict(np.reshape(s, (1, actor.s_dim))) + actor_noise()
+            a = controller(s[0],s[1],s[3])
+            s2, r, terminal, info = env.step(a)
 
             replay_buffer.add(np.reshape(s, (actor.s_dim,)), np.reshape(a, (actor.a_dim,)), r,
                               terminal, np.reshape(s2, (actor.s_dim,)))
@@ -445,7 +445,12 @@ def train(sess, env, actor, critic, actor_noise,summary_dir,buffer_size, minibat
                         i, (ep_ave_max_q / float(j))))
                 break
 
-env = CarlaEnv()
+while True:
+        try:
+            env = CarlaEnv()
+            break
+        except Exception as e:
+            print(e)
 with tf.Session() as sess:
     Actor = ActorNetwork(sess=sess, state_dim=env.observation_space.shape[0], action_dim=env.action_space.shape[0], action_bound=(-1,1), learning_rate=0.003, tau=.125, batch_size=128)
     Critic = CriticNetwork(sess=sess, state_dim=env.observation_space.shape[0], action_dim=env.action_space.shape[0], learning_rate=0.003, tau=0.125, gamma=0.95, num_actor_vars=Actor.get_num_trainable_vars())
