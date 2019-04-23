@@ -180,6 +180,7 @@ def referenceErrors(world,vehicle,waypoints,velocities,radius):
     totalDistance = 0
     # print(yaw)
     nextWaypoint = waypoints[-1]
+    z = 0
     try:
         for i,r in enumerate(radius[index:]):
 #            print("index: {}, totalDistance: {}, Radius: {}".format(index+i,totalDistance,r))
@@ -189,13 +190,16 @@ def referenceErrors(world,vehicle,waypoints,velocities,radius):
                 if totalDistance > 3:
                     if i > 9:
                         nextWaypoint = waypoints[index+i]
+                        z = i
                         break
                     else:
                         nextWaypoint = waypoints[index+9]
+                        z = 9
                         break
             
             else:
                 nextWaypoint = waypoints[index+9]
+                z = 9
                 break
     except Exception:
         return 0
@@ -214,7 +218,7 @@ def referenceErrors(world,vehicle,waypoints,velocities,radius):
         angleError  = angleError - 360
     elif angleError < -180:
         angleError = angleError + 360
-    return xte, velError, angleError, nextWaypoint, index
+    return xte, velError, angleError, nextWaypoint, index+z
 
 def controller(vehicle,xte,velError,angle):
      

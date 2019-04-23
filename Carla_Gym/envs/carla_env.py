@@ -50,8 +50,8 @@ class CarlaEnv(gym.Env):
         # Throttle, Steering
         self.action_space = Box(np.array([-1.0,-1.0]), np.array([1.0,1.0]))
 
-        #Heading angle, xte, velocity, radius (closest), radius (medium), radius (far), distance travelled
-        self.observation_space = Box(np.array([-360.0,-5.0,0.0,0.0]), np.array([360,5.0,12.0,np.inf]))
+        #np.array([xte,velError,vel,angleError,self.radius[index]/500])
+        self.observation_space = Box(np.array([-np.inf,-11.0,0.0,-np.inf,0.0]), np.array([np.inf,11.0,np.inf,np.inf,np.inf]))
         self._spec = lambda: None
         self._spec.id = "Carla-v0"
         self._seed = 1
@@ -189,6 +189,8 @@ class CarlaEnv(gym.Env):
 
     def _read_observations(self):
         error = referenceErrors(self.world,self.vehicle,self.zippedWaypoints,self.velocities,self.radius)
+        vel = self.vehicle.get_velocity()
+        vel = np.sqrt(vel.x**2 + vel.y**2 + vel.z**2 )
         if (error == 0):
             reachedGoal = 1
         else:
@@ -201,13 +203,14 @@ class CarlaEnv(gym.Env):
                 "step": self.num_steps,
                 "reached_goal": reachedGoal,
                 "xte": xte,
+                "velocity": vel,
                 "velocity_error": velError,
                 "angle_error": angleError,
                 "next_x": nextWaypoint[0],
                 "next_y": nextWaypoint[1],
                 "radius": self.radius[index]/500,
             }
-            obs = np.array([xte,velError,angleError,self.radius[index]/500])
+            obs = np.array([xte,velError,vel,angleError,self.radius[index]/500])
         else:
             obs = self.last_obs
             py_measurements = {
@@ -215,6 +218,7 @@ class CarlaEnv(gym.Env):
                 "step": self.num_steps,
                 "reached_goal": reachedGoal,
                 "xte": obs[0],
+                "velocity": vel,
                 "velocity_error": obs[1],
                 "angle_error": obs[2],
                 "next_x": self.map.get_waypoint(self.vehicle.get_location()).transform.location.x,
@@ -238,9 +242,9 @@ class CarlaEnv(gym.Env):
     
     def step_env(self, action):
 
-        throttle = float(np.clip(action[0][0], 0, 1))
-        brake = float(np.abs(np.clip(action[0][0], -1, 0)))
-        steer = float(np.clip(action[0][1], -1, 1))
+        throttle = float(np.clip(action[0], 0, 1))
+        brake = float(np.abs(np.clip(action[0], -1, 0)))
+        steer = float(np.clip(action[1], -1, 1))
         reverse = False
         hand_brake = False
 
