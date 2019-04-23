@@ -155,15 +155,15 @@ class ActorNetwork(object):
     # https://www.programcreek.com/python/example/90345/tensorflow.trainable_variables
 
     def save_model(self):
-        with open("ddpg_actor.pkl","rb") as hand:
-            pickle.dump(self.target_network_params,hand)
+        saver = tf.train.Saver()
+        saver.save(self.sess,"Agent/actor_ddpg")
+        print("\033[92m actor model saved \x1b[0m")
     
     def load_model(self):
-        with open("ddpg_actor.pkl","rb") as hand:
-            self.target_network_params=pickle.load(hand)
-        
+        saver = tf.train.Saver()
+        saver.restore(self.sess,"Agent/actor_ddpg")
         self.update_target_network()
-        
+        print("\033[92m actor model loaded \x1b[0m")
 
 
 class CriticNetwork(object):
@@ -262,14 +262,16 @@ class CriticNetwork(object):
         self.sess.run(self.update_target_network_params)
     
     def save_model(self):
-        with open("ddpg_critic.pkl","rb") as hand:
-            pickle.dump(self.target_network_params,hand)
+        saver = tf.train.Saver()
+        saver.save(self.sess,"Agent/critic_ddpg")
+        print("\033[92m critic model saved \x1b[0m")
 
     def load_model(self):
-        with open("ddpg_critic.pkl","rb") as hand:
-            self.target_network_params=pickle.load(hand)
-        
+        saver = tf.train.Saver()
+        saver.restore(self.sess,"Agent/critic_ddpg")
         self.update_target_network()
+        print("\033[92m critic model loaded \x1b[0m")
+
 # Taken from https://github.com/openai/baselines/blob/master/baselines/ddpg/noise.py, which is
 # based on http://math.stackexchange.com/questions/1287634/implementing-ornstein-uhlenbeck-in-matlab
 class OrnsteinUhlenbeckActionNoise:
@@ -358,18 +360,19 @@ def train(sess, env, actor, critic, actor_noise,summary_dir,buffer_size, minibat
     # This hurts the performance on Pendulum but could be useful
     # in other environments.
     # tflearn.is_training(True)
-    try:
-        with open("ddpg_memory.pkl","rb") as hand:
-            replay_buffer = pickle.load(hand)
-            print("memory found")
-    except Exception as e:
-        print("no memory found")
+    # try:
+    #     with open("ddpg_memory.pkl","rb") as hand:
+    #         replay_buffer = pickle.load(hand)
+    #         print(replay_buffer.size())
+    #         print("\033[92m memory found '\x1b[0m'")
+    # except Exception as e:
+    #     print("\033[92m no memory found '\x1b[0m'")
         
     try:
         actor.load_model()
         critic.load_model()
     except Exception as e:
-        print("No agent found")
+        print("\033[92m No agent found '\x1b[0m'")
 
     for i in range(int(max_episodes)):
 
@@ -380,8 +383,8 @@ def train(sess, env, actor, critic, actor_noise,summary_dir,buffer_size, minibat
         if i:
             with open("ddpg_memory.pkl","wb") as hand:
                 pickle.dump(replay_buffer,hand)
-            # actor.save_model()
-            # critic.save_model()
+            actor.save_model()
+            critic.save_model()
             print("Saving Agent")
 
         for j in range(int(max_steps)):
@@ -457,12 +460,13 @@ with tf.Session() as sess:
     Actor = ActorNetwork(sess=sess, state_dim=env.observation_space.shape[0], action_dim=env.action_space.shape[0], action_bound=(-1,1), learning_rate=0.003, tau=.125, batch_size=128)
     Critic = CriticNetwork(sess=sess, state_dim=env.observation_space.shape[0], action_dim=env.action_space.shape[0], learning_rate=0.003, tau=0.125, gamma=0.95, num_actor_vars=Actor.get_num_trainable_vars())
     action_bound = env.action_space.high
-    assert(env.action_space.high == -env.action_space.low)
-    while True:
-        try:
-            train(sess=sess, env=env, actor=Actor, critic=Critic, actor_noise=OrnsteinUhlenbeckActionNoise(),summary_dir="log.txt",buffer_size=2000000, minibatch_size=16,max_episodes=1000,max_steps=1800)
-            break
-        except Exception as e:
-            print(e)
 
-    # train(sess=sess, env=env, actor=Actor, critic=Critic, actor_noise=OrnsteinUhlenbeckActionNoise(),summary_dir="log.txt",buffer_size=2000000, minibatch_size=4,max_episodes=1000,max_steps=1800)
+    # assert((env.action_space.high == -env.action_space.low).all())
+    # while True:
+    #     try:
+    #         train(sess=sess, env=env, actor=Actor, critic=Critic, actor_noise=OrnsteinUhlenbeckActionNoise(),summary_dir="log.txt",buffer_size=2000000, minibatch_size=16,max_episodes=1000,max_steps=1800)
+    #         break
+    #     except Exception as e:
+    #         print(e)
+
+    train(sess=sess, env=env, actor=Actor, critic=Critic, actor_noise=OrnsteinUhlenbeckActionNoise(),summary_dir="log.txt",buffer_size=20000000, minibatch_size=4,max_episodes=1000,max_steps=1800)
