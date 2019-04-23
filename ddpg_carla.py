@@ -152,6 +152,8 @@ class ActorNetwork(object):
     def get_num_trainable_vars(self):
         return self.num_trainable_vars
     
+    # https://www.programcreek.com/python/example/90345/tensorflow.trainable_variables
+
     def save_model(self):
         with open("ddpg_actor.pkl","rb") as hand:
             pickle.dump(self.target_network_params,hand)
@@ -454,7 +456,8 @@ while True:
 with tf.Session() as sess:
     Actor = ActorNetwork(sess=sess, state_dim=env.observation_space.shape[0], action_dim=env.action_space.shape[0], action_bound=(-1,1), learning_rate=0.003, tau=.125, batch_size=128)
     Critic = CriticNetwork(sess=sess, state_dim=env.observation_space.shape[0], action_dim=env.action_space.shape[0], learning_rate=0.003, tau=0.125, gamma=0.95, num_actor_vars=Actor.get_num_trainable_vars())
-    print(env.observation_space.shape[0])
+    action_bound = env.action_space.high
+    assert(env.action_space.high == -env.action_space.low)
     while True:
         try:
             train(sess=sess, env=env, actor=Actor, critic=Critic, actor_noise=OrnsteinUhlenbeckActionNoise(),summary_dir="log.txt",buffer_size=2000000, minibatch_size=16,max_episodes=1000,max_steps=1800)
