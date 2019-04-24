@@ -18,19 +18,9 @@ from carla_functions import *
 SERVER_BINARY = os.environ.get(
     "CARLA_SERVER", os.path.expanduser("~/carla/Unreal/CarlaUE4.sh"))
 assert os.path.exists(SERVER_BINARY), "CARLA_SERVER environment variable is not set properly. Please check and retry"
-
+# code
 RETRIES_ON_ERROR = 4
-DISCRETE_ACTIONS = {
-    0: [0.0, 0.0],    # Coast
-    1: [0.0, -0.5],   # Turn Left
-    2: [0.0, 0.5],    # Turn Right
-    3: [1.0, 0.0],    # Forward
-    4: [-0.5, 0.0],   # Brake
-    5: [1.0, -0.5],   # Bear Left & accelerate
-    6: [1.0, 0.5],    # Bear Right & accelerate
-    7: [-0.5, -0.5],  # Bear Left & decelerate
-    8: [-0.5, 0.5],   # Bear Right & decelerate
-}
+
 
 live_carla_processes = set()
 def cleanup():
