@@ -14,6 +14,7 @@ from keras.optimizers import Adam
 from keras.layers.merge import Add, Multiply, Concatenate
 from collections import deque
 import tflearn
+import matplotlib.pyplot as plt
 
 class ReplayBuffer(object):
 
@@ -377,6 +378,8 @@ def train(sess, env, actor, critic, actor_noise,summary_dir,buffer_size, minibat
 
         ep_reward = 0
         ep_ave_max_q = 0
+        ax = plt.axes()
+        plt.clf()
         if i:
             with open("ddpg_memory.pkl","wb") as hand:
                 pickle.dump(replay_buffer,hand)
@@ -387,14 +390,13 @@ def train(sess, env, actor, critic, actor_noise,summary_dir,buffer_size, minibat
         for j in range(int(max_steps)):
 
             print("epoch: {}, step: {}".format(i,j))
-            env.render()
+            # env.render()
 
             # Added exploration noise
             # a = actor.predict(np.reshape(s, (1, 3))) + (1. / (1. + i))
             # a = actor.predict(np.reshape(s, (1, actor.s_dim))) + actor_noise()
             a = controller(s[0],s[1],s[3])
             a = [a]
-            # print(a)
             s2, r, terminal, info = env.step(a[0])
             print("reward: {}".format(r))
 
@@ -436,6 +438,12 @@ def train(sess, env, actor, critic, actor_noise,summary_dir,buffer_size, minibat
 
             s = s2
             ep_reward += r
+
+            ax.scatter(j,r)
+            ax.set_xlabel("step")
+            ax.set_ylabel("Reward")
+            plt.draw()
+            plt.pause(0.01)
 
             if terminal:
 
