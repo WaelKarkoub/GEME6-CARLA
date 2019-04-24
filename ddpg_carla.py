@@ -101,7 +101,7 @@ class ActorNetwork(object):
 
         # Combine the gradients here
         self.unnormalized_actor_gradients = tf.gradients(
-            self.out, self.network_params, -self.action_gradient)
+            self.scaled_out, self.network_params, -self.action_gradient)
         self.actor_gradients = list(map(lambda x: tf.div(x, self.batch_size), self.unnormalized_actor_gradients))
 
         # Optimization Op
@@ -120,9 +120,9 @@ class ActorNetwork(object):
         net = tflearn.layers.normalization.batch_normalization(net)
         net = tflearn.activations.relu(net)
         # Final layer weights are init to Uniform[-3e-3, 3e-3]
-        w_init = tflearn.initializations.uniform(minval=-1.0, maxval=1.0)
+        w_init = tflearn.initializations.uniform(minval=-0.05, maxval=0.05)
         out = tflearn.fully_connected(
-            net, self.a_dim, weights_init=w_init) #, activation='tanh'
+            net, self.a_dim, activation='tanh', weights_init=w_init) #
         # Scale output to -action_bound to action_bound
         scaled_out = tf.multiply(out, self.action_bound)
         return inputs, out, scaled_out
@@ -139,7 +139,7 @@ class ActorNetwork(object):
         })
 
     def predict_target(self, inputs):
-        return self.sess.run(self.target_out, feed_dict={
+        return self.sess.run(self.target_scaled_out, feed_dict={
             self.target_inputs: inputs
         })
 
@@ -391,10 +391,10 @@ def train(sess, env, actor, critic, actor_noise,summary_dir,buffer_size, minibat
 
             # Added exploration noise
             # a = actor.predict(np.reshape(s, (1, 3))) + (1. / (1. + i))
-            # a = actor.predict(np.reshape(s, (1, actor.s_dim))) # + actor_noise()
-            a = controller(s[0],s[1],s[3])
-            a = [a]
-            print(a)
+            a = actor.predict(np.reshape(s, (1, actor.s_dim)))
+            # a = controller(s[0],s[1],s[3])
+            # a = [a]
+            # print(a)
             s2, r, terminal, info = env.step(a[0])
 
             replay_buffer.add(np.reshape(s, (actor.s_dim,)), np.reshape(a, (actor.a_dim,)), r,

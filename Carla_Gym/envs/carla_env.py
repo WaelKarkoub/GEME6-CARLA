@@ -275,7 +275,7 @@ class CarlaEnv(gym.Env):
         py_measurements["total_reward"] = self.total_reward
         done = (self.num_steps > 10**4 or
                 py_measurements["reached_goal"] or
-                (py_measurements["xte"]>3))
+                (py_measurements["xte"]>1.5))
         py_measurements["done"] = done
         self.prev_measurement = py_measurements
 
@@ -309,19 +309,19 @@ class CarlaEnv(gym.Env):
         # else:
         #     pass
         
-        reward -= np.abs(current_measurement["xte"])
-        reward -= 5*np.abs(current_measurement["velocity_error"])
+        reward -= 10*np.abs(current_measurement["xte"])
+        reward -= np.abs(current_measurement["velocity_error"])
 
 
-        if  np.abs(current_measurement["xte"])> 0.5:
+        if  np.abs(current_measurement["xte"])> 0.3:
             reward -= 10
-        if  np.abs(current_measurement["xte"])<= 0.5:
+        if  np.abs(current_measurement["xte"])<= 0.3:
             reward += 10
 
-        if np.abs(current_measurement["velocity_error"])> 3:
-            reward -= 50
-        if np.abs(current_measurement["velocity_error"])<= 3:
-            reward += 20
+        if np.abs(current_measurement["velocity_error"])> 2:
+            reward -= 1
+        if np.abs(current_measurement["velocity_error"])<= 2:
+            reward += 1
         return reward
     
     def render(self):
