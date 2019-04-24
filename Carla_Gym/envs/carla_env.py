@@ -66,8 +66,10 @@ class CarlaEnv(gym.Env):
         self.cam = None
         self.camPos = None
         self.sensor = None
+        self.total_distance = 0
         self.init_server()
         self.reset()
+
     def init_server(self):
         print("Initializing new Carla server...")
         self.server_port = 2000
@@ -141,7 +143,8 @@ class CarlaEnv(gym.Env):
         if self.vehicle is not None:
             self.vehicle.destroy()
             self.sensor.destroy()
-        
+        self.total_distance = 0
+        self.prevLocation = None
         self.vehicle = None
         self.sensor = None
         self.num_steps = 0
@@ -185,6 +188,9 @@ class CarlaEnv(gym.Env):
             reachedGoal = 1
         else:
             reachedGoal = 0
+        
+        
+
         if isinstance(error,tuple):
             xte, velError, angleError,nextWaypoint, index = error[0],error[1],error[2], error[3], error[4]
         if reachedGoal == 0:
@@ -237,8 +243,10 @@ class CarlaEnv(gym.Env):
         steer = float(np.clip(action[1], -1, 1))
         reverse = False
         hand_brake = False
+        loc = self.vehicle.get_location()
+        loc = (loc.x,loc.y)
 
-        print("steer", steer, "throttle", throttle, "brake", brake)
+        print("steer: {}, throttle: {}, brake: {}".format(steer, throttle, brake))
         control = carla.VehicleControl(
                     throttle = throttle,
                     steer = steer,
@@ -248,7 +256,17 @@ class CarlaEnv(gym.Env):
                     manual_gear_shift = False,
                     gear = 1)
         self.vehicle.apply_control(control)
-    
+
+        
+
+        if self.num_steps >= 2:
+            self.total_distance += np.sqrt((np.abs(loc[0])-np.abs(self.prevLocation[0]))**2 + (np.abs(loc[1])-np.abs(self.prevLocation[1]))**2)
+            
+        else:
+            self.total_distance = 0
+
+        self.prevLocation = loc
+        print("total distance: {}".format(self.total_distance))
         # Process observations
         obs, py_measurements = self._read_observations()
 
@@ -312,6 +330,12 @@ class CarlaEnv(gym.Env):
             reward -= 1
         if np.abs(current_measurement["velocity_error"])<= 2:
             reward += 1
+        
+        if (self.total_distance >= 3) and (self.total_distance > 0):
+            print("\033[92m Travelled 3 meters \x1b[0m")
+            reward += 30 
+            self.total_distance = 0
+
         return reward
     
     def render(self):

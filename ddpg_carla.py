@@ -391,11 +391,12 @@ def train(sess, env, actor, critic, actor_noise,summary_dir,buffer_size, minibat
 
             # Added exploration noise
             # a = actor.predict(np.reshape(s, (1, 3))) + (1. / (1. + i))
-            a = actor.predict(np.reshape(s, (1, actor.s_dim)))
-            # a = controller(s[0],s[1],s[3])
-            # a = [a]
+            # a = actor.predict(np.reshape(s, (1, actor.s_dim))) + actor_noise()
+            a = controller(s[0],s[1],s[3])
+            a = [a]
             # print(a)
             s2, r, terminal, info = env.step(a[0])
+            print("reward: {}".format(r))
 
             replay_buffer.add(np.reshape(s, (actor.s_dim,)), np.reshape(a, (actor.a_dim,)), r,
                               terminal, np.reshape(s2, (actor.s_dim,)))
@@ -403,7 +404,7 @@ def train(sess, env, actor, critic, actor_noise,summary_dir,buffer_size, minibat
             # Keep adding experience to the memory until
             # there are at least minibatch size samples
             if replay_buffer.size() > int(minibatch_size):
-                print("training")
+                
                 s_batch, a_batch, r_batch, t_batch, s2_batch = \
                     replay_buffer.sample_batch(int(minibatch_size))
 
@@ -470,4 +471,4 @@ with tf.Session() as sess:
     #     except Exception as e:
     #         print(e)
 
-    train(sess=sess, env=env, actor=Actor, critic=Critic, actor_noise=OrnsteinUhlenbeckActionNoise(),summary_dir="log.txt",buffer_size=20000000, minibatch_size=4,max_episodes=1000,max_steps=1800)
+    train(sess=sess, env=env, actor=Actor, critic=Critic, actor_noise=OrnsteinUhlenbeckActionNoise(),summary_dir="log.txt",buffer_size=20000000, minibatch_size=16,max_episodes=1000,max_steps=1800)
