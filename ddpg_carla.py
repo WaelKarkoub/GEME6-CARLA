@@ -8,11 +8,8 @@ import pickle
 sys.path.insert(0, '/home/wael/Desktop/golfcart/GEME6-CARLA/Carla_Gym/envs/')
 from carla_env import CarlaEnv
 import numpy as np
-import keras.backend as K
 import tensorflow as tf
 
-from keras.models import Sequential, Model
-from keras.layers import Dense, Activation, Flatten, Input, Concatenate, Dropout
 from keras.optimizers import Adam
 from keras.layers.merge import Add, Multiply, Concatenate
 from collections import deque
@@ -104,7 +101,7 @@ class ActorNetwork(object):
 
         # Combine the gradients here
         self.unnormalized_actor_gradients = tf.gradients(
-            self.scaled_out, self.network_params, -self.action_gradient)
+            self.out, self.network_params, -self.action_gradient)
         self.actor_gradients = list(map(lambda x: tf.div(x, self.batch_size), self.unnormalized_actor_gradients))
 
         # Optimization Op
@@ -123,9 +120,9 @@ class ActorNetwork(object):
         net = tflearn.layers.normalization.batch_normalization(net)
         net = tflearn.activations.relu(net)
         # Final layer weights are init to Uniform[-3e-3, 3e-3]
-        w_init = tflearn.initializations.uniform(minval=-0.003, maxval=0.003)
+        w_init = tflearn.initializations.uniform(minval=-1.0, maxval=1.0)
         out = tflearn.fully_connected(
-            net, self.a_dim, activation='tanh', weights_init=w_init)
+            net, self.a_dim, weights_init=w_init) #, activation='tanh'
         # Scale output to -action_bound to action_bound
         scaled_out = tf.multiply(out, self.action_bound)
         return inputs, out, scaled_out
@@ -137,12 +134,12 @@ class ActorNetwork(object):
         })
 
     def predict(self, inputs):
-        return self.sess.run(self.scaled_out, feed_dict={
+        return self.sess.run(self.out, feed_dict={
             self.inputs: inputs
         })
 
     def predict_target(self, inputs):
-        return self.sess.run(self.target_scaled_out, feed_dict={
+        return self.sess.run(self.target_out, feed_dict={
             self.target_inputs: inputs
         })
 
@@ -339,7 +336,7 @@ def controller(xte,velError,angle):
     else:
         gas, brake = 0, 0
 
-    return np.array([prop,steering])
+    return [prop,steering]
 
 def train(sess, env, actor, critic, actor_noise,summary_dir,buffer_size, minibatch_size,max_episodes,max_steps):
 
@@ -359,20 +356,20 @@ def train(sess, env, actor, critic, actor_noise,summary_dir,buffer_size, minibat
     # Needed to enable BatchNorm. 
     # This hurts the performance on Pendulum but could be useful
     # in other environments.
-    # tflearn.is_training(True)
-    # try:
-    #     with open("ddpg_memory.pkl","rb") as hand:
-    #         replay_buffer = pickle.load(hand)
-    #         print(replay_buffer.size())
-    #         print("\033[92m memory found '\x1b[0m'")
-    # except Exception as e:
-    #     print("\033[92m no memory found '\x1b[0m'")
+    tflearn.is_training(True)
+    try:
+        with open("ddpg_memory.pkl","rb") as hand:
+            replay_buffer = pickle.load(hand)
+            print(replay_buffer.size())
+            print("\033[92m memory found \x1b[0m")
+    except Exception as e:
+        print("\033[92m no memory found \x1b[0m")
         
     try:
         actor.load_model()
         critic.load_model()
     except Exception as e:
-        print("\033[92m No agent found '\x1b[0m'")
+        print("\033[92m No agent found \x1b[0m")
 
     for i in range(int(max_episodes)):
 
@@ -385,7 +382,7 @@ def train(sess, env, actor, critic, actor_noise,summary_dir,buffer_size, minibat
                 pickle.dump(replay_buffer,hand)
             actor.save_model()
             critic.save_model()
-            print("Saving Agent")
+            print("Agent saved")
 
         for j in range(int(max_steps)):
 
@@ -394,9 +391,11 @@ def train(sess, env, actor, critic, actor_noise,summary_dir,buffer_size, minibat
 
             # Added exploration noise
             # a = actor.predict(np.reshape(s, (1, 3))) + (1. / (1. + i))
-            # a = actor.predict(np.reshape(s, (1, actor.s_dim))) + actor_noise()
+            # a = actor.predict(np.reshape(s, (1, actor.s_dim))) # + actor_noise()
             a = controller(s[0],s[1],s[3])
-            s2, r, terminal, info = env.step(a)
+            a = [a]
+            print(a)
+            s2, r, terminal, info = env.step(a[0])
 
             replay_buffer.add(np.reshape(s, (actor.s_dim,)), np.reshape(a, (actor.a_dim,)), r,
                               terminal, np.reshape(s2, (actor.s_dim,)))
@@ -404,6 +403,7 @@ def train(sess, env, actor, critic, actor_noise,summary_dir,buffer_size, minibat
             # Keep adding experience to the memory until
             # there are at least minibatch size samples
             if replay_buffer.size() > int(minibatch_size):
+                print("training")
                 s_batch, a_batch, r_batch, t_batch, s2_batch = \
                     replay_buffer.sample_batch(int(minibatch_size))
 
@@ -451,15 +451,16 @@ def train(sess, env, actor, critic, actor_noise,summary_dir,buffer_size, minibat
                 break
 
 while True:
-        try:
-            env = CarlaEnv()
-            break
-        except Exception as e:
-            print(e)
+    try:
+        env = CarlaEnv()
+        break
+    except Exception as e:
+        print(e)
 with tf.Session() as sess:
-    Actor = ActorNetwork(sess=sess, state_dim=env.observation_space.shape[0], action_dim=env.action_space.shape[0], action_bound=(-1,1), learning_rate=0.003, tau=.125, batch_size=128)
-    Critic = CriticNetwork(sess=sess, state_dim=env.observation_space.shape[0], action_dim=env.action_space.shape[0], learning_rate=0.003, tau=0.125, gamma=0.95, num_actor_vars=Actor.get_num_trainable_vars())
     action_bound = env.action_space.high
+    Actor = ActorNetwork(sess=sess, state_dim=env.observation_space.shape[0], action_dim=env.action_space.shape[0], action_bound=action_bound, learning_rate=0.003, tau=.125, batch_size=128)
+    Critic = CriticNetwork(sess=sess, state_dim=env.observation_space.shape[0], action_dim=env.action_space.shape[0], learning_rate=0.003, tau=0.125, gamma=0.95, num_actor_vars=Actor.get_num_trainable_vars())
+    
 
     # assert((env.action_space.high == -env.action_space.low).all())
     # while True:
