@@ -40,8 +40,8 @@ class CarlaEnv(gym.Env):
         # Throttle, Steering
         self.action_space = Box(np.array([-1.0,-1.0]), np.array([1.0,1.0]))
 
-        #np.array([xte,velError,vel,angleError,self.radius[index]/500])
-        self.observation_space = Box(np.array([-np.inf,-11.0,0.0,-np.inf,0.0]), np.array([np.inf,11.0,np.inf,np.inf,np.inf]))
+        #np.array([xte,velError,vel,angleError)
+        self.observation_space = Box(np.array([-np.inf,-11.0,0.0,-np.inf]), np.array([np.inf,11.0,np.inf,np.inf]))
         self._spec = lambda: None
         self._spec.id = "Carla-v0"
         self._seed = 1
@@ -180,12 +180,19 @@ class CarlaEnv(gym.Env):
 
         # Heading angle, xte, velocity, radius (closest), radius (medium), radius (far), distance travelled = self._read_observation()
         self.prev_measurement = self._read_observations()[1]
+        
+        self.render()
+        time.sleep(0.5)
         return self._read_observations()[0]
 
     def _read_observations(self):
         error = referenceErrors(self.world,self.vehicle,self.zippedWaypoints,self.velocities,self.radius)
-        vel = self.vehicle.get_velocity()
-        vel = np.sqrt(vel.x**2 + vel.y**2 + vel.z**2 )
+        self.vel = self.vehicle.get_velocity()
+        self.vel = np.sqrt(self.vel.x**2 + self.vel.y**2 + self.vel.z**2 )
+
+        self.acc = self.vehicle.get_acceleration()
+        self.acc = np.sqrt(self.acc.x**2 + self.acc.y**2 + self.acc.z**2 )
+
         if (error == 0):
             reachedGoal = 1
         else:
@@ -201,14 +208,15 @@ class CarlaEnv(gym.Env):
                 "step": self.num_steps,
                 "reached_goal": reachedGoal,
                 "xte": xte,
-                "velocity": vel,
+                "velocity": self.vel,
                 "velocity_error": velError,
                 "angle_error": angleError,
                 "next_x": self.nextWaypoint[0],
                 "next_y": self.nextWaypoint[1],
                 "radius": self.radius[index]/500,
+                "acceleration":self.acc,
             }
-            obs = np.array([xte,velError,vel,angleError,self.radius[index]/500])
+            obs = np.array([xte,velError,self.vel,angleError])
         else:
             obs = self.last_obs
             py_measurements = {
@@ -216,12 +224,13 @@ class CarlaEnv(gym.Env):
                 "step": self.num_steps,
                 "reached_goal": reachedGoal,
                 "xte": obs[0],
-                "velocity": vel,
+                "velocity": self.vel,
                 "velocity_error": obs[1],
                 "angle_error": obs[2],
                 "next_x": self.map.get_waypoint(self.vehicle.get_location()).transform.location.x,
                 "next_y":self.map.get_waypoint(self.vehicle.get_location()).transform.location.x,
                 "radius": obs[3],
+                "acceleration":self.acc,
             }
 
         self.last_obs = obs
@@ -281,9 +290,9 @@ class CarlaEnv(gym.Env):
         self.total_reward += reward
         py_measurements["reward"] = reward
         py_measurements["total_reward"] = self.total_reward
-        done = (self.num_steps > 10**4 or
+        done = (self.num_steps > 10**5 or
                 py_measurements["reached_goal"] or
-                (py_measurements["xte"]>1.5))
+                (py_measurements["xte"]>2))
         py_measurements["done"] = done
         self.prev_measurement = py_measurements
 
@@ -319,7 +328,7 @@ class CarlaEnv(gym.Env):
         
         reward -= 10*np.abs(current_measurement["xte"])
         reward -= np.abs(current_measurement["velocity_error"])
-
+        reward -= current_measurement["angle_error"]/5.0
 
         if  np.abs(current_measurement["xte"])> 0.3:
             reward -= 20
@@ -335,10 +344,12 @@ class CarlaEnv(gym.Env):
             print("\033[92m Travelled 5 meters \x1b[0m")
             reward += 30 
             self.total_distance = 0
-
+        if self.vel <= 0.0000001:
+            reward -= 1000
         return reward
     
-    def render(self):
+    def render(self,mode="human"):
         self.world.get_spectator().set_transform(self.sensor.get_transform())
         time.sleep(1/31)
         self.world.tick()
+        

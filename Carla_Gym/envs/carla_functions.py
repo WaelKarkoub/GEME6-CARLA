@@ -188,18 +188,18 @@ def referenceErrors(world,vehicle,waypoints,velocities,radius):
                 totalDistance = totalDistance + np.sqrt((waypoints[index+i][0]-waypoints[index][0])**2 + (waypoints[index+i][1]-waypoints[index+i][1])**2)
 
                 if totalDistance > 3:
-                    if i > 9:
+                    if i > 4:
                         nextWaypoint = waypoints[index+i]
                         z = i
                         break
                     else:
-                        nextWaypoint = waypoints[index+9]
-                        z = 9
+                        nextWaypoint = waypoints[index+4]
+                        z = 4
                         break
             
             else:
-                nextWaypoint = waypoints[index+9]
-                z = 9
+                nextWaypoint = waypoints[index+4]
+                z = 4
                 break
     except Exception:
         return 0

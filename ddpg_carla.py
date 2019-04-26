@@ -9,7 +9,7 @@ sys.path.insert(0, '/home/wael/Desktop/golfcart/GEME6-CARLA/Carla_Gym/envs/')
 from carla_env import CarlaEnv
 import numpy as np
 import tensorflow as tf
-
+# from keras im
 from keras.optimizers import Adam
 from keras.layers.merge import Add, Multiply, Concatenate
 from collections import deque
@@ -273,7 +273,7 @@ class CriticNetwork(object):
 # Taken from https://github.com/openai/baselines/blob/master/baselines/ddpg/noise.py, which is
 # based on http://math.stackexchange.com/questions/1287634/implementing-ornstein-uhlenbeck-in-matlab
 class OrnsteinUhlenbeckActionNoise:
-    def __init__(self, mu=np.array([0.0,0.0]), sigma=0.3, theta=.15, dt=1e-2, x0=None):
+    def __init__(self, mu=np.array([0.0,0.0]), sigma=np.array([0.5,0.5]), theta=.15, dt=1e-2, x0=None):
         self.theta = theta
         self.mu = mu
         self.sigma = sigma
@@ -378,8 +378,7 @@ def train(sess, env, actor, critic, actor_noise,summary_dir,buffer_size, minibat
 
         ep_reward = 0
         ep_ave_max_q = 0
-        ax = plt.axes()
-        plt.clf()
+        # plt.clf()
         if i:
             with open("ddpg_memory.pkl","wb") as hand:
                 pickle.dump(replay_buffer,hand)
@@ -394,9 +393,9 @@ def train(sess, env, actor, critic, actor_noise,summary_dir,buffer_size, minibat
 
             # Added exploration noise
             # a = actor.predict(np.reshape(s, (1, 3))) + (1. / (1. + i))
-            # a = actor.predict(np.reshape(s, (1, actor.s_dim))) + actor_noise()
-            a = controller(s[0],s[1],s[3])
-            a = [a]
+            a = actor.predict(np.reshape(s, (1, actor.s_dim))) + actor_noise()
+            # a = controller(s[0],s[1],s[3])
+            # a = [a]
             s2, r, terminal, info = env.step(a[0])
             print("reward: {}".format(r))
 
@@ -406,44 +405,44 @@ def train(sess, env, actor, critic, actor_noise,summary_dir,buffer_size, minibat
             # Keep adding experience to the memory until
             # there are at least minibatch size samples
             if replay_buffer.size() > int(minibatch_size):
-                
-                s_batch, a_batch, r_batch, t_batch, s2_batch = \
-                    replay_buffer.sample_batch(int(minibatch_size))
+                for i in range(4):
+                    s_batch, a_batch, r_batch, t_batch, s2_batch = \
+                        replay_buffer.sample_batch(int(minibatch_size))
 
-                # Calculate targets
-                target_q = critic.predict_target(
-                    s2_batch, actor.predict_target(s2_batch))
+                    # Calculate targets
+                    target_q = critic.predict_target(
+                        s2_batch, actor.predict_target(s2_batch))
 
-                y_i = []
-                for k in range(int(minibatch_size)):
-                    if t_batch[k]:
-                        y_i.append(r_batch[k])
-                    else:
-                        y_i.append(r_batch[k] + critic.gamma * target_q[k])
+                    y_i = []
+                    for k in range(int(minibatch_size)):
+                        if t_batch[k]:
+                            y_i.append(r_batch[k])
+                        else:
+                            y_i.append(r_batch[k] + critic.gamma * target_q[k])
 
-                # Update the critic given the targets
-                predicted_q_value, _ = critic.train(
-                    s_batch, a_batch, np.reshape(y_i, (int(minibatch_size), 1)))
+                    # Update the critic given the targets
+                    predicted_q_value, _ = critic.train(
+                        s_batch, a_batch, np.reshape(y_i, (int(minibatch_size), 1)))
 
-                ep_ave_max_q += np.amax(predicted_q_value)
+                    ep_ave_max_q += np.amax(predicted_q_value)
 
-                # Update the actor policy using the sampled gradient
-                a_outs = actor.predict(s_batch)
-                grads = critic.action_gradients(s_batch, a_outs)
-                actor.train(s_batch, grads[0])
+                    # Update the actor policy using the sampled gradient
+                    a_outs = actor.predict(s_batch)
+                    grads = critic.action_gradients(s_batch, a_outs)
+                    actor.train(s_batch, grads[0])
 
-                # Update target networks
-                actor.update_target_network()
-                critic.update_target_network()
+                    # Update target networks
+                    actor.update_target_network()
+                    critic.update_target_network()
 
             s = s2
             ep_reward += r
 
-            ax.scatter(j,r)
-            ax.set_xlabel("step")
-            ax.set_ylabel("Reward")
-            plt.draw()
-            plt.pause(0.01)
+            # plt.scatter(j,r)
+            # plt.xlabel("step")
+            # plt.ylabel("Reward")
+            # plt.draw()
+            # plt.pause(0.0001)
 
             if terminal:
 
