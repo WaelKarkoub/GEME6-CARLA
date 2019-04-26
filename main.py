@@ -19,6 +19,7 @@ while True:
     except Exception as e:
         print(e)
 max_episodes = 100
+max_steps = 1800
 control = Controller()
 
 
@@ -27,7 +28,7 @@ for i in range(int(max_episodes)):
     s = env.reset()
 
     counter = 0
-    while True:
+    for j in range(int(max_steps)):
         if counter == 0:
             a = control.action(s[0],s[3],s[1],0.001,controller_type="LQR")
         else:
