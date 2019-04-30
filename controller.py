@@ -72,16 +72,17 @@ class Controller():
                         [0,1,0,0,0],\
                         [0,0,1,0,0],\
                         [0,0,0,1,0],\
-                        [0,0,0,0,40]])
+                        [0,0,0,0,30]])
 
-        R = np.array([[20,0],\
+        R = np.array([[40,0],\
                         [0,20]])
         state = np.array([[self.e],\
                         [self.ed],\
                         [self.th],\
                         [self.th_d],\
                         [self.ve]])
-        input = self.dlqr(A,B,Q,R,state)
+        if controller_type == "LQR":
+            input = self.dlqr(A,B,Q,R,state)
         self.e_prev = self.e
         self.th_prev = self.th
 
