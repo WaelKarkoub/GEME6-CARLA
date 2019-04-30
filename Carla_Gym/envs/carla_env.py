@@ -103,7 +103,7 @@ class CarlaEnv(gym.Env):
         gem = self.world.get_blueprint_library().find('vehicle.polaris.e6')
         self.map = self.world.get_map()
 
-        with open('stored_data/waypoints2.pkl',"rb") as hand:
+        with open('stored_data/waypoints1.pkl',"rb") as hand:
             positions = pickle.load(hand)
 
         start = carla.Location(x=positions[0][0],y=positions[0][1])
@@ -178,7 +178,7 @@ class CarlaEnv(gym.Env):
         self.history_velError = []
 
         gem = self.world.get_blueprint_library().find('vehicle.polaris.e6')
-        with open('stored_data/waypoints2.pkl',"rb") as hand:
+        with open('stored_data/waypoints1.pkl',"rb") as hand:
             positions = pickle.load(hand)
         
         start = carla.Location(x=positions[0][0],y=positions[0][1])

@@ -447,7 +447,7 @@ def train(sess, env, actor, critic, actor_noise,summary_dir,buffer_size, minibat
             if terminal:
 
                 history = last_info["history"]
-                with open("stored_data/car_history_DDPG_2.pkl","wb") as hand:
+                with open("stored_data/car_history_DDPG_1.pkl","wb") as hand:
                     pickle.dump(history,hand)
                 summary_str = sess.run(summary_ops, feed_dict={
                     summary_vars[0]: ep_reward,
