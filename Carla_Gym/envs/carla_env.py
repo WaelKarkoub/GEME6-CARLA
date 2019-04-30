@@ -12,7 +12,7 @@ import gym
 from gym.spaces import Box, Discrete, Tuple
 import carla
 import sys
-
+import pickle
 from carla_functions import *
 
 SERVER_BINARY = os.environ.get(
@@ -67,6 +67,11 @@ class CarlaEnv(gym.Env):
         self.camPos = None
         self.sensor = None
         self.total_distance = 0
+        self.history_x = []
+        self.history_y = []
+        self.history = []
+        self.history_xte = []
+        self.history_velError = []
         self.init_server()
         self.reset()
 
@@ -97,15 +102,26 @@ class CarlaEnv(gym.Env):
         self.world.apply_settings(settings)
         gem = self.world.get_blueprint_library().find('vehicle.polaris.e6')
         self.map = self.world.get_map()
+
+        with open('stored_data/waypoints2.pkl',"rb") as hand:
+            positions = pickle.load(hand)
+
+        start = carla.Location(x=positions[0][0],y=positions[0][1])
+
+        start = self.map.get_waypoint(start)
+
         while True:
             try:
-                self.waypoints = makePath(self.world)
-                self.vehicle = self.world.spawn_actor(gem, self.waypoints[0].transform)
+                # self.waypoints = makePath(self.world)
+                # self.vehicle = self.world.spawn_actor(gem, self.waypoints[0].transform)
+                self.vehicle = self.world.spawn_actor(gem, start.transform)
                 break
             except Exception as e:
                 print("Collision while spawning")
         
-        positions = waypoints2tuple(self.waypoints)
+        # positions = waypoints2tuple(self.waypoints)
+        
+
         self.cam = self.world.get_blueprint_library().find('sensor.camera.rgb')
         self.camPos = carla.Transform(carla.Location(x=-8.5, z=2.8))
         self.cam.set_attribute('image_size_x', '1920')
@@ -156,17 +172,30 @@ class CarlaEnv(gym.Env):
         self.zippedWaypoints = None
         self.velocities = None
         self.episode_id = datetime.today().strftime("%Y-%m-%d_%H-%M-%S_%f")
+        self.history_x = []
+        self.history_y = []
+        self.history_xte = []
+        self.history_velError = []
+
         gem = self.world.get_blueprint_library().find('vehicle.polaris.e6')
+        with open('stored_data/waypoints2.pkl',"rb") as hand:
+            positions = pickle.load(hand)
+        
+        start = carla.Location(x=positions[0][0],y=positions[0][1])
+        start = self.map.get_waypoint(start)
 
         while True:
             try:
-                self.waypoints = makePath(self.world)
-                self.vehicle = self.world.spawn_actor(gem, self.waypoints[0].transform)
+                # self.waypoints = makePath(self.world)
+                # self.vehicle = self.world.spawn_actor(gem, self.waypoints[0].transform)
+                self.vehicle = self.world.spawn_actor(gem, start.transform)
                 break
             except Exception as e:
                 print("Collision while spawning")
+        # positions = waypoints2tuple(self.waypoints)
+        # with open('waypoints1.pkl',"rb") as hand:
+        #     positions = pickle.load(hand)
 
-        positions = waypoints2tuple(self.waypoints)
         self.sensor = self.world.spawn_actor(self.cam, self.camPos, attach_to=self.vehicle)  
 
         tck,x,y = splineFit(positions)
@@ -192,7 +221,11 @@ class CarlaEnv(gym.Env):
 
         self.acc = self.vehicle.get_acceleration()
         self.acc = np.sqrt(self.acc.x**2 + self.acc.y**2 + self.acc.z**2 )
-
+        self.loc_h = self.vehicle.get_location()
+        self.loc_h = (self.loc_h.x,self.loc_h.y)
+        self.history_x.append(self.loc_h[0])
+        self.history_y.append(self.loc_h[1])
+        self.history = [self.history_x,self.history_y]
         if (error == 0):
             reachedGoal = 1
         else:
@@ -202,6 +235,9 @@ class CarlaEnv(gym.Env):
 
         if isinstance(error,tuple):
             xte, velError, angleError,self.nextWaypoint, index = error[0],error[1],error[2], error[3], error[4]
+            self.history_xte.append(xte)
+            self.history_velError.append(velError)
+
         if reachedGoal == 0:
             py_measurements = {
                 "episode_id": self.episode_id,
@@ -215,6 +251,9 @@ class CarlaEnv(gym.Env):
                 "next_y": self.nextWaypoint[1],
                 "radius": self.radius[index]/500,
                 "acceleration":self.acc,
+                "history": self.history,
+                "xte_history": self.history_xte,
+                "velError_history": self.history_velError,
             }
             obs = np.array([xte,velError,self.vel,angleError])
         else:
@@ -228,9 +267,12 @@ class CarlaEnv(gym.Env):
                 "velocity_error": obs[1],
                 "angle_error": obs[2],
                 "next_x": self.map.get_waypoint(self.vehicle.get_location()).transform.location.x,
-                "next_y":self.map.get_waypoint(self.vehicle.get_location()).transform.location.x,
+                "next_y":self.map.get_waypoint(self.vehicle.get_location()).transform.location.y,
                 "radius": obs[3],
                 "acceleration":self.acc,
+                "history": self.history,
+                "xte_history": self.history_xte,
+                "velError_history": self.history_velError,
             }
 
         self.last_obs = obs
@@ -239,7 +281,7 @@ class CarlaEnv(gym.Env):
     def step(self, action):
         try:
             obs = self.step_env(action)
-            return obs[0],obs[1], obs[2], {}
+            return obs[0],obs[1], obs[2], obs[3]
         except Exception:
             print(
                 "Error during step, terminating episode early",

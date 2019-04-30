@@ -358,19 +358,19 @@ def train(sess, env, actor, critic, actor_noise,summary_dir,buffer_size, minibat
     # This hurts the performance on Pendulum but could be useful
     # in other environments.
     tflearn.is_training(True)
-    try:
-        with open("ddpg_memory.pkl","rb") as hand:
-            replay_buffer = pickle.load(hand)
-            print(replay_buffer.size())
-            print("\033[92m memory found \x1b[0m")
-    except Exception as e:
-        print("\033[92m no memory found \x1b[0m")
+    # try:
+    #     with open("ddpg_memory.pkl","rb") as hand:
+    #         replay_buffer = pickle.load(hand)
+    #         print(replay_buffer.size())
+    #         print("\033[92m memory found \x1b[0m")
+    # except Exception as e:
+    #     print("\033[92m no memory found \x1b[0m")
         
-    try:
-        actor.load_model()
-        critic.load_model()
-    except Exception as e:
-        print("\033[92m No agent found \x1b[0m")
+    # try:
+    #     actor.load_model()
+    #     critic.load_model()
+    # except Exception as e:
+    #     print("\033[92m No agent found \x1b[0m")
 
     for i in range(int(max_episodes)):
 
@@ -446,6 +446,9 @@ def train(sess, env, actor, critic, actor_noise,summary_dir,buffer_size, minibat
 
             if terminal:
 
+                history = last_info["history"]
+                with open("stored_data/car_history_DDPG_2.pkl","wb") as hand:
+                    pickle.dump(history,hand)
                 summary_str = sess.run(summary_ops, feed_dict={
                     summary_vars[0]: ep_reward,
                     summary_vars[1]: ep_ave_max_q / float(j)
@@ -457,7 +460,7 @@ def train(sess, env, actor, critic, actor_noise,summary_dir,buffer_size, minibat
                 print('| Reward: {:d} | Episode: {:d} | Qmax: {:.4f}'.format(int(ep_reward), \
                         i, (ep_ave_max_q / float(j))))
                 break
-
+            last_info = info
 while True:
     try:
         env = CarlaEnv()

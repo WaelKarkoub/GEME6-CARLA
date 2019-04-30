@@ -7,7 +7,7 @@ class Controller():
         self.e = 0
         self.th = 0
         self.ve = 0
-        self.dt = 1/30.
+        self.dt = 1/15.
         self.L = 4.24 # meters
         self.e_prev = 0
         self.th_prev = 0

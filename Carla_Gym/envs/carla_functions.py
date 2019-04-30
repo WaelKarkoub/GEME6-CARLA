@@ -4,7 +4,7 @@ import numpy as np
 import carla
 import random
 from scipy.spatial import distance
-
+import matplotlib.pyplot as plt
 
 def waypoints2tuple(waypoints):
     """Converts waypoints (carla.Waypoint) to a list of (x,y,z)
@@ -220,47 +220,18 @@ def referenceErrors(world,vehicle,waypoints,velocities,radius):
         angleError = angleError + 360
     return xte, velError, angleError, nextWaypoint, index+z
 
-def controller(vehicle,xte,velError,angle):
-     
-    # if angle < 0:
-    #     angle = angle + 180
-    # elif angle == 0:
-    #     angle = 0
-    # else:
-    #     angle = angle - 180
+def drawWaypoints(waypoints):
+    x = []
+    y = []
 
-
-    if angle > 50.0:
-        angle = 50.0
+    for point in waypoints:
+        x.append(point[0])
+        y.append(point[1])
     
-    if angle < -50:
-        angle = -50
+    points = [x,y]
 
-    steering = angle*1/50.0
+    plt.plot(x,y)
+    plt.show()
 
-    if velError > 2:
-        velError = 2
-    if velError < -2:
-        velError = -2
+    return points
 
-    prop = -(1.0/2.0)*velError
-
-    if prop < 0:
-        brake = np.abs(prop)
-        gas = 0
-    elif prop > 0:
-        gas = np.abs(prop)
-        brake = 0
-    else:
-        gas, brake = 0, 0
-
-    control = carla.VehicleControl(
-        throttle = gas,
-        steer = steering,
-        brake = brake,
-        hand_brake = False,
-        reverse = False,
-        manual_gear_shift = False,
-        gear = 1)
-    
-    vehicle.apply_control(control)
