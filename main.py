@@ -42,11 +42,11 @@ for i in range(int(max_episodes)):
             history_pos = last_info["history"]
             history_xte = last_info["xte_history"]
             history_vel = last_info["velError_history"]
-            with open("stored_data/car_history_lqr_1.pkl","wb") as hand:
+            with open("stored_data/car_history_H2_2.pkl","wb") as hand:
                 pickle.dump(history_pos,hand)
-            with open("stored_data/car_history_lqr1_xte.pkl",'wb') as hand:
+            with open("stored_data/car_history_H2_2_xte.pkl",'wb') as hand:
                 pickle.dump(history_xte,hand)
-            with open("stored_data/car_history_lqr1_vel.pkl",'wb') as hand:
+            with open("stored_data/car_history_H2_2_vel.pkl",'wb') as hand:
                 pickle.dump(history_vel,hand)
             break
         last_info = info
